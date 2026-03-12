@@ -3,29 +3,36 @@ ClawGame - 休闲养成小游戏
 主入口文件
 """
 
-import pygame
 import sys
+
+import pygame
+
+from config import config
 from game.game import Game
+from utils.asset_loader import AssetLoader
 
 
 def main():
     """游戏主入口"""
+    # 初始化 Pygame
     pygame.init()
+    pygame.mixer.init()  # 初始化音效系统
     
-    # 游戏配置
-    SCREEN_WIDTH = 800
-    SCREEN_HEIGHT = 600
-    FPS = 60
+    # 创建窗口（使用配置中的分辨率）
+    screen = pygame.display.set_mode(config.screen_resolution)
+    pygame.display.set_caption(config.TITLE)
     
-    # 创建窗口
-    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-    pygame.display.set_caption("ClawGame - 休闲养成")
+    # 创建内部渲染表面（用于缩放渲染）
+    internal_surface = pygame.Surface(config.internal_resolution)
     
     # 创建时钟
     clock = pygame.time.Clock()
     
+    # 创建资源管理器
+    asset_loader = AssetLoader("assets")
+    
     # 创建游戏实例
-    game = Game(screen)
+    game = Game(screen, asset_loader)
     
     # 游戏主循环
     running = True
@@ -39,14 +46,24 @@ def main():
         # 更新游戏状态
         game.update()
         
-        # 渲染
-        game.render()
+        # 渲染到内部表面
+        game.render(internal_surface)
+        
+        # 缩放到窗口大小
+        scaled_surface = pygame.transform.scale(
+            internal_surface, 
+            config.screen_resolution
+        )
+        screen.blit(scaled_surface, (0, 0))
         
         # 刷新显示
         pygame.display.flip()
         
         # 控制帧率
-        clock.tick(FPS)
+        clock.tick(config.FPS)
+    
+    # 清理资源
+    asset_loader.clear_cache()
     
     pygame.quit()
     sys.exit()
