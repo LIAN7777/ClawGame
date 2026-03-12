@@ -16,7 +16,12 @@ def main():
     """游戏主入口"""
     # 初始化 Pygame
     pygame.init()
-    pygame.mixer.init()  # 初始化音效系统
+    
+    # 尝试初始化音效系统（可选）
+    try:
+        pygame.mixer.init()
+    except pygame.error:
+        print("警告: 音频设备不可用，游戏将以静音模式运行")
     
     # 创建窗口（使用配置中的分辨率）
     screen = pygame.display.set_mode(config.screen_resolution)
