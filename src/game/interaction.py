@@ -198,75 +198,50 @@ class InteractionSystem:
     def render_prompt(
         self, 
         surface: pygame.Surface, 
-        camera: Optional['Camera'] = None
+        camera: Optional['Camera'] = None,
+        player: Optional['Player'] = None
     ) -> None:
         """
         渲染交互提示
         
-        在可交互 NPC 头顶显示 "Press E to talk"。
-        
+        在玩家右上角显示一个小 E 按钮。
+
         Args:
             surface: 目标渲染表面
             camera: 相机对象
+            player: 玩家对象
         """
         if not self.show_prompt or self.nearby_npc is None:
             return
         
-        npc = self.nearby_npc
+        # 获取玩家屏幕位置
+        if player is None:
+            return
         
-        # 计算 NPC 屏幕位置
         if camera:
-            screen_x = int(npc.x - camera.x)
-            screen_y = int(npc.y - camera.y)
+            player_screen_x = int(player.x - camera.x)
+            player_screen_y = int(player.y - camera.y)
         else:
-            screen_x = int(npc.x)
-            screen_y = int(npc.y)
+            player_screen_x = int(player.x)
+            player_screen_y = int(player.y)
         
-        # 提示框位置（NPC 头顶）
-        prompt_x = screen_x + npc.width // 2
-        prompt_y = screen_y - 35
+        # E 按钮位置（玩家右上角）
+        # 玩家精灵尺寸为 24x24，按钮放在右上角
+        button_radius = 10  # 圆形半径
+        button_x = player_screen_x + player.width + button_radius - 4  # 右上角偏移
+        button_y = player_screen_y - button_radius + 4  # 顶部偏移
         
-        # 使用支持中文的字体
-        font = _get_font(self.PROMPT_FONT_SIZE)
-        text_surface = font.render(self.INTERACTION_PROMPT, True, (0, 0, 0))
-        text_rect = text_surface.get_rect()
+        # 绘制 E 按钮
+        # 圆形背景（白色）
+        pygame.draw.circle(surface, (255, 255, 255), (button_x, button_y), button_radius)
+        # 圆形边框（深灰色）
+        pygame.draw.circle(surface, (100, 100, 100), (button_x, button_y), button_radius, width=2)
         
-        # 提示框尺寸
-        padding = 6
-        box_width = text_rect.width + padding * 2
-        box_height = text_rect.height + padding * 2
-        
-        # 提示框矩形
-        box_rect = pygame.Rect(
-            prompt_x - box_width // 2,
-            prompt_y - box_height,
-            box_width,
-            box_height
-        )
-        
-        # 绘制提示框背景（浅黄色，更醒目）
-        pygame.draw.rect(
-            surface, 
-            (255, 255, 200), 
-            box_rect, 
-            border_radius=4
-        )
-        
-        # 绘制提示框边框
-        pygame.draw.rect(
-            surface, 
-            (180, 180, 100), 
-            box_rect, 
-            width=1, 
-            border_radius=4
-        )
-        
-        # 绘制文本
-        text_pos = (
-            box_rect.centerx - text_rect.width // 2,
-            box_rect.centery - text_rect.height // 2
-        )
-        surface.blit(text_surface, text_pos)
+        # E 字母
+        font = pygame.font.Font(None, 16)
+        text_surface = font.render("E", True, (50, 50, 50))
+        text_rect = text_surface.get_rect(center=(button_x, button_y))
+        surface.blit(text_surface, text_rect)
     
     def _calculate_distance(
         self, 

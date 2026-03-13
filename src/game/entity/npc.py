@@ -630,12 +630,12 @@ class NPC(Entity):
         # 获取样式配置
         style = STYLE_DEFAULT
         
-        # 使用支持中文的字体
-        font = _get_chinese_font(16)
+        # 使用支持中文的字体 - 缩小为 12px
+        font = _get_chinese_font(12)
         text_surface = font.render(self.bubble_text, True, style.text_color)
         text_rect = text_surface.get_rect()
         
-        # 计算气泡尺寸（包含内边距）
+        # 计算气泡尺寸（包含内边距）- 缩小 30%
         from config.ui import calculate_bubble_size
         bubble_width, bubble_height = calculate_bubble_size(
             text_rect.width,
@@ -643,8 +643,20 @@ class NPC(Entity):
             style
         )
         
+        # 整体缩小 30%
+        bubble_width = int(bubble_width * 0.7)
+        bubble_height = int(bubble_height * 0.7)
+        
+        # 使用缩小的 9-slice 边框配置（边框宽度 16px）
+        small_nine_slice = NineSliceConfig(
+            border_left=16,
+            border_right=16,
+            border_top=16,
+            border_bottom=16
+        )
+        
         # 确保最小尺寸能容纳 9-slice 边框
-        min_size = DEFAULT_NINE_SLICE.border_left + DEFAULT_NINE_SLICE.border_right
+        min_size = small_nine_slice.border_left + small_nine_slice.border_right
         bubble_width = max(bubble_width, min_size)
         bubble_height = max(bubble_height, min_size)
         
@@ -669,7 +681,7 @@ class NPC(Entity):
                 surface,
                 border_img,
                 bubble_rect,
-                DEFAULT_NINE_SLICE
+                small_nine_slice  # 使用缩小的边框配置
             )
         except Exception as e:
             # 回退到简单矩形

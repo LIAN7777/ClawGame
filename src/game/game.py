@@ -143,8 +143,8 @@ class Game:
         # 渲染场景（使用相机）
         self.scene.render(target, self.camera)
         
-        # 渲染交互提示
-        self.interaction_system.render_prompt(target, self.camera)
+        # 渲染交互提示（传入玩家对象用于显示 E 按钮）
+        self.interaction_system.render_prompt(target, self.camera, self.player)
         
         # 渲染暂停提示
         if self.paused:
