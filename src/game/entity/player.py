@@ -43,6 +43,10 @@ class Player(Entity):
     WALK_SPEED: float = 100.0    # 普通速度：100 像素/秒
     RUN_SPEED: float = 180.0     # 奔跑速度：180 像素/秒
     
+    # 加速/减速参数（更自然的移动感）
+    ACCELERATION: float = 400.0   # 加速度：400 像素/秒²
+    DECELERATION: float = 600.0   # 减速度：600 像素/秒²（更快停下）
+    
     # 跳跃参数
     JUMP_HEIGHT: float = 40.0    # 跳跃高度：40 像素
     JUMP_DURATION: float = 0.5   # 跳跃持续时间：0.5 秒
@@ -84,6 +88,10 @@ class Player(Entity):
         self.is_moving: bool = False
         self.is_running: bool = False
         
+        # 实际速度（像素/秒）- 用于平滑移动
+        self.actual_vx: float = 0.0
+        self.actual_vy: float = 0.0
+        
         # 跳跃状态
         self.is_jumping: bool = False
         self.jump_timer: float = 0.0     # 跳跃计时器
@@ -116,12 +124,12 @@ class Player(Entity):
     
     def handle_input(self, keys: pygame.key.ScancodeWrapper) -> None:
         """
-        处理输入
+        处理输入 - 设置目标速度
         
         Args:
             keys: pygame 键盘状态
         """
-        # 重置速度
+        # 重置目标速度
         self.vx = 0.0
         self.vy = 0.0
         self.is_moving = False
@@ -130,7 +138,7 @@ class Player(Entity):
         self.is_running = keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]
         self.current_speed = self.RUN_SPEED if self.is_running else self.WALK_SPEED
         
-        # 四向移动（WASD 或方向键）
+        # 四向移动（WASD 或方向键）- 设置目标速度
         # 上下移动
         if keys[pygame.K_w] or keys[pygame.K_UP]:
             self.vy = -self.current_speed
@@ -155,6 +163,57 @@ class Player(Entity):
         if keys[pygame.K_SPACE] and not self.is_jumping:
             self._start_jump()
     
+    def _update_velocity(self, dt: float) -> None:
+        """
+        更新实际速度（平滑加速/减速）
+        
+        Args:
+            dt: 时间增量（秒）
+        """
+        # X 方向
+        if self.vx != 0:
+            # 加速
+            if self.actual_vx < self.vx:
+                self.actual_vx += self.ACCELERATION * dt
+                if self.actual_vx > self.vx:
+                    self.actual_vx = self.vx
+            elif self.actual_vx > self.vx:
+                self.actual_vx -= self.ACCELERATION * dt
+                if self.actual_vx < self.vx:
+                    self.actual_vx = self.vx
+        else:
+            # 减速到0
+            if self.actual_vx > 0:
+                self.actual_vx -= self.DECELERATION * dt
+                if self.actual_vx < 0:
+                    self.actual_vx = 0
+            elif self.actual_vx < 0:
+                self.actual_vx += self.DECELERATION * dt
+                if self.actual_vx > 0:
+                    self.actual_vx = 0
+        
+        # Y 方向
+        if self.vy != 0:
+            # 加速
+            if self.actual_vy < self.vy:
+                self.actual_vy += self.ACCELERATION * dt
+                if self.actual_vy > self.vy:
+                    self.actual_vy = self.vy
+            elif self.actual_vy > self.vy:
+                self.actual_vy -= self.ACCELERATION * dt
+                if self.actual_vy < self.vy:
+                    self.actual_vy = self.vy
+        else:
+            # 减速到0
+            if self.actual_vy > 0:
+                self.actual_vy -= self.DECELERATION * dt
+                if self.actual_vy < 0:
+                    self.actual_vy = 0
+            elif self.actual_vy < 0:
+                self.actual_vy += self.DECELERATION * dt
+                if self.actual_vy > 0:
+                    self.actual_vy = 0
+    
     def update(self, dt: float) -> None:
         """
         更新玩家状态
@@ -172,12 +231,15 @@ class Player(Entity):
         if self.is_jumping:
             self._update_jump(dt)
         
+        # 更新实际速度（平滑加速/减速）
+        self._update_velocity(dt)
+        
         # 更新动画状态
         self._update_anim_state()
         
-        # 计算移动量
-        dx = self.vx * dt
-        dy = self.vy * dt
+        # 计算移动量（使用实际速度）
+        dx = self.actual_vx * dt
+        dy = self.actual_vy * dt
         
         # 如果有移动，进行碰撞检测
         if dx != 0 or dy != 0:
@@ -209,7 +271,8 @@ class Player(Entity):
         """更新动画状态"""
         if self.is_jumping:
             self.anim_state = AnimState.JUMP
-        elif self.is_moving:
+        elif abs(self.actual_vx) > 1.0 or abs(self.actual_vy) > 1.0:
+            # 实际速度大于阈值时才算移动中
             self.anim_state = AnimState.MOVE
         else:
             self.anim_state = AnimState.IDLE

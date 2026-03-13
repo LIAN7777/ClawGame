@@ -272,13 +272,14 @@ class TestPlayer:
         player = Player(x=100, y=200)
         
         # 默认闲置
-        player.is_moving = False
+        player.actual_vx = 0.0
+        player.actual_vy = 0.0
         player.is_jumping = False
         player._update_anim_state()
         assert player.anim_state == AnimState.IDLE
         
-        # 移动状态
-        player.is_moving = True
+        # 移动状态（实际速度大于阈值）
+        player.actual_vx = 50.0
         player._update_anim_state()
         assert player.anim_state == AnimState.MOVE
         
