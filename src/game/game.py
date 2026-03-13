@@ -118,6 +118,7 @@ class Game:
         
         # 更新交互系统
         self.interaction_system.update(self.player, self.scene.npcs)
+        self.interaction_system.update_cooldown(dt)
         
         # 更新相机跟随
         self.camera.follow(self.player.rect, smooth=True)
@@ -148,9 +149,6 @@ class Game:
         # 渲染暂停提示
         if self.paused:
             self._render_pause_overlay(target, width, height)
-        
-        # 渲染调试信息
-        self._render_debug_info(target)
     
     def _render_pause_overlay(
         self, 

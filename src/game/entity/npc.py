@@ -68,8 +68,16 @@ class NPC(Entity):
         },
     }
     
+    # 对话内容
+    DIALOGS = {
+        'default': ["你好~", "Hi!", "有什么事吗？", "欢迎！"],
+        'green': ["你好呀~", "今天天气真好！", "需要帮忙吗？"],
+        'blue': ["嘿~", "有什么新鲜事吗？", "一起来玩吧！"],
+        'yellow': ["你好你好~", "见到你真开心！", "有什么想聊的吗？"],
+    }
+    
     # 对话气泡配置
-    BUBBLE_DURATION: float = 2.0  # 气泡显示时长（秒）
+    BUBBLE_DURATION: float = 3.0  # 气泡显示时长（秒）
     
     def __init__(
         self, 
@@ -146,8 +154,15 @@ class NPC(Entity):
             对话文本
         """
         import random
-        greetings = ["你好！", "Hi!", "欢迎！", "嘿！"]
-        text = random.choice(greetings)
+        
+        # 如果已经在对话中，不重复触发
+        if self.show_bubble:
+            return self.bubble_text
+        
+        # 根据颜色方案选择对话内容
+        dialogs = self.DIALOGS.get(self.color_scheme, self.DIALOGS['default'])
+        text = random.choice(dialogs)
+        
         self.show_dialog(text)
         return text
     

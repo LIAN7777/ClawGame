@@ -36,6 +36,9 @@ class InteractionSystem:
         
         # 交互提示显示状态
         self.show_prompt: bool = False
+        
+        # 防止重复触发交互
+        self._interact_cooldown: float = 0.0
     
     def update(
         self, 
@@ -89,6 +92,16 @@ class InteractionSystem:
         
         return self.nearby_npc
     
+    def update_cooldown(self, dt: float) -> None:
+        """
+        更新交互冷却时间
+        
+        Args:
+            dt: 时间增量（秒）
+        """
+        if self._interact_cooldown > 0:
+            self._interact_cooldown -= dt
+    
     def try_interact(self) -> Optional[str]:
         """
         尝试交互
@@ -99,8 +112,17 @@ class InteractionSystem:
         if self.nearby_npc is None:
             return None
         
+        # 检查冷却时间
+        if self._interact_cooldown > 0:
+            return None
+        
         # 触发 NPC 交互
-        return self.nearby_npc.interact()
+        result = self.nearby_npc.interact()
+        
+        # 设置冷却时间（防止重复触发）
+        self._interact_cooldown = 0.5
+        
+        return result
     
     def handle_key(self, key: int) -> Optional[str]:
         """

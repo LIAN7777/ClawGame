@@ -226,10 +226,10 @@ class TileMap:
         screen_x = tile.grid_x * self.tile_size + offset[0]
         screen_y = tile.grid_y * self.tile_size + offset[1]
         
-        # 应用相机偏移
+        # 应用相机偏移（使用整数避免浮点数导致的缝隙）
         if camera:
-            screen_x -= camera.x
-            screen_y -= camera.y
+            screen_x -= int(camera.x)
+            screen_y -= int(camera.y)
         
         # 获取颜色
         color = self.TILE_COLORS.get(tile.tile_type, self.TILE_COLORS[-1])
