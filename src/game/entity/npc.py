@@ -17,22 +17,88 @@ if TYPE_CHECKING:
 
 # 尝试加载中文字体
 def _get_chinese_font(size: int) -> pygame.font.Font:
-    """获取支持中文的字体"""
+    """
+    获取支持中文的字体
+    
+    优先使用系统字体，兼容 Windows/Linux/macOS
+    """
+    # 尝试使用 SysFont 查找系统中文字体
+    # Windows 字体名称格式多样，需要尝试多种写法
+    chinese_font_names = [
+        # Windows - 微软雅黑
+        'Microsoft YaHei',
+        'microsoftyahei',
+        '微软雅黑',
+        # Windows - 黑体
+        'SimHei',
+        'simhei',
+        '黑体',
+        # Windows - 宋体
+        'SimSun',
+        'simsun',
+        '宋体',
+        # Linux - Droid
+        'Droid Sans Fallback',
+        'droid sans fallback',
+        'DroidSansFallback',
+        # Linux/macOS - Noto
+        'Noto Sans CJK SC',
+        'Noto Sans CJK',
+        'noto sans cjk',
+        'notosanscjk',
+        # macOS - 苹方
+        'PingFang SC',
+        'PingFang',
+        'pingfang',
+        # macOS - 黑体
+        'STHeiti',
+        'heiti',
+    ]
+    
+    # 首先尝试 SysFont
+    for font_name in chinese_font_names:
+        try:
+            font = pygame.font.SysFont(font_name, size)
+            # 测试渲染中文字符
+            test_surface = font.render('你好', True, (0, 0, 0))
+            # 检查渲染尺寸 - 有效的中文字体应该有合理的宽度
+            w, h = test_surface.get_size()
+            if w > 15 and h > 5:  # "你好" 两个字应该有一定宽度
+                return font
+        except Exception:
+            continue
+    
+    # 如果 SysFont 失败，尝试直接加载字体文件
     font_paths = [
+        # Windows 字体
+        "C:/Windows/Fonts/msyh.ttc",      # 微软雅黑
+        "C:/Windows/Fonts/msyhbd.ttc",    # 微软雅黑粗体
+        "C:/Windows/Fonts/simhei.ttf",    # 黑体
+        "C:/Windows/Fonts/simsun.ttc",    # 宋体
+        "C:/Windows/Fonts/simkai.ttf",    # 楷体
+        # Linux 字体
         "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
         "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
         "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
-        "/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc",
+        # macOS 字体
+        "/System/Library/Fonts/PingFang.ttc",
+        "/System/Library/Fonts/STHeiti Light.ttc",
+        "/Library/Fonts/Arial Unicode.ttf",
     ]
     
     for font_path in font_paths:
         if os.path.exists(font_path):
             try:
-                return pygame.font.Font(font_path, size)
+                font = pygame.font.Font(font_path, size)
+                test_surface = font.render('你好', True, (0, 0, 0))
+                w, h = test_surface.get_size()
+                if w > 15 and h > 5:
+                    return font
             except Exception:
                 continue
     
-    # 回退到默认字体
+    # 最后回退到默认字体（不支持中文，但至少不会崩溃）
+    print("警告: 未找到中文字体，文本可能显示为方块")
     return pygame.font.Font(None, size)
 
 

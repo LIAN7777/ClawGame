@@ -15,17 +15,55 @@ if TYPE_CHECKING:
 
 
 def _get_font(size: int) -> pygame.font.Font:
-    """获取支持中文的字体"""
+    """
+    获取支持中文的字体
+    
+    优先使用系统字体，兼容 Windows/Linux/macOS
+    """
+    # 尝试使用 SysFont 查找系统中文字体
+    chinese_font_names = [
+        'Microsoft YaHei',
+        'microsoftyahei',
+        'SimHei',
+        'simhei',
+        'SimSun',
+        'simsun',
+        'Droid Sans Fallback',
+        'droid sans fallback',
+        'Noto Sans CJK SC',
+        'Noto Sans CJK',
+        'noto sans cjk',
+        'PingFang SC',
+        'PingFang',
+    ]
+    
+    # 首先尝试 SysFont
+    for font_name in chinese_font_names:
+        try:
+            font = pygame.font.SysFont(font_name, size)
+            test_surface = font.render('你好', True, (0, 0, 0))
+            w, h = test_surface.get_size()
+            if w > 15 and h > 5:
+                return font
+        except Exception:
+            continue
+    
+    # 如果 SysFont 失败，尝试直接加载字体文件
     font_paths = [
+        "C:/Windows/Fonts/msyh.ttc",
+        "C:/Windows/Fonts/simhei.ttf",
         "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
         "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-        "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
     ]
     
     for font_path in font_paths:
         if os.path.exists(font_path):
             try:
-                return pygame.font.Font(font_path, size)
+                font = pygame.font.Font(font_path, size)
+                test_surface = font.render('你好', True, (0, 0, 0))
+                w, h = test_surface.get_size()
+                if w > 15 and h > 5:
+                    return font
             except Exception:
                 continue
     
