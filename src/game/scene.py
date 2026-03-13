@@ -27,64 +27,82 @@ class TileType:
     CHAIR = 15       # 椅子
     BED = 16         # 床
     RUG = 17         # 地毯
+    BOOKSHELF = 18   # 书架
+    PLANT = 19       # 植物
+    CHEST = 20       # 箱子
+    CRATE = 21       # 木箱
 
 
 # 木屋室内颜色配置（备用，当没有 tileset 时使用）
 CABIN_COLORS: Dict[int, Tuple[int, int, int]] = {
-    TileType.FLOOR: (139, 90, 43),      # 棕色木地板
-    TileType.WALL: (101, 67, 33),       # 深棕色墙壁
-    TileType.WINDOW: (255, 223, 186),   # 暖黄色窗户
-    TileType.DOOR: (139, 69, 19),       # 深棕色门
-    TileType.TABLE: (160, 82, 45),      # 赭色桌子
-    TileType.CHAIR: (139, 69, 19),      # 深棕色椅子
-    TileType.BED: (178, 34, 34),        # 红木床架
-    TileType.RUG: (85, 107, 47),        # 橄榄绿地毯
+    TileType.FLOOR: (210, 180, 140),     # 浅棕木地板
+    TileType.WALL: (139, 90, 43),        # 棕色墙壁
+    TileType.WINDOW: (255, 223, 186),    # 暖黄色窗户
+    TileType.DOOR: (139, 69, 19),        # 深棕色门
+    TileType.TABLE: (160, 82, 45),       # 赭色桌子
+    TileType.CHAIR: (139, 69, 19),       # 深棕色椅子
+    TileType.BED: (178, 34, 34),         # 红木床架
+    TileType.RUG: (220, 20, 60),         # 红色地毯
+    TileType.BOOKSHELF: (101, 67, 33),   # 深棕书架
+    TileType.PLANT: (34, 139, 34),       # 绿色植物
+    TileType.CHEST: (139, 90, 43),       # 棕色箱子
+    TileType.CRATE: (160, 82, 45),       # 木箱
 }
 
-# Tile 类型到 Tileset ID 的映射
-# 选择的 tile 风格统一，视觉效果清晰
+# Tile 类型到 Tiny Town Tileset ID 的映射
+# 选择的 tile 风格统一，温馨暖色调
 TILE_TYPE_TO_TILESET: Dict[int, int] = {
-    TileType.FLOOR: TileID.FLOOR_WOOD_H,    # 木地板 (ID 149) - 横向木纹
-    TileType.WALL: TileID.WALL_BASIC,       # 墙壁 (ID 1) - 实心墙壁，清晰边界
-    TileType.WINDOW: TileID.WALL_WINDOW_1,  # 窗户 (ID 6) - 窗户变体 1
-    TileType.DOOR: TileID.WALL_DOOR,        # 门 (ID 8) - 门
-    TileType.TABLE: TileID.TABLE_SMALL_1,   # 桌子 (ID 246) - 小桌子
-    TileType.CHAIR: TileID.CHAIR_BASIC,     # 椅子 (ID 253) - 基础椅子
-    TileType.BED: TileID.BED_SINGLE_1,      # 床 (ID 344) - 单人床
-    TileType.RUG: TileID.RUG_1,             # 地毯 (ID 733) - 地毯装饰
+    TileType.FLOOR: TileID.FLOOR_WOOD_1,     # 木地板 (ID 13) - 温馨木屋风格
+    TileType.WALL: TileID.WALL_WOOD_1,       # 木墙 (ID 5) - 统一风格
+    TileType.WINDOW: TileID.WALL_WINDOW,     # 窗户 (ID 7)
+    TileType.DOOR: TileID.WALL_DOOR,         # 门 (ID 9)
+    TileType.TABLE: TileID.TABLE_WOOD,       # 木桌 (ID 27)
+    TileType.CHAIR: TileID.CHAIR_FRONT,      # 椅子 (ID 29)
+    TileType.BED: TileID.BED_RED,            # 红色床 (ID 30)
+    TileType.RUG: TileID.FLOOR_CARPET_RED,   # 红色地毯 (ID 20)
+    TileType.BOOKSHELF: TileID.BOOKSHELF,    # 书架 (ID 32)
+    TileType.PLANT: TileID.PLANT,            # 植物 (ID 39)
+    TileType.CHEST: TileID.CHEST_CLOSED,     # 箱子关闭 (ID 49)
+    TileType.CRATE: TileID.FURNITURE_CRATE,  # 木箱 (ID 25)
 }
 
 
 # 木屋室内地图数据 (15x12 tiles)
-# 10=地板, 11=墙壁, 12=窗户, 13=门, 14=桌子, 15=椅子, 16=床, 17=地毯
+# 使用 Tiny Town tilesheet
 # 
-# 布局设计：
-# - 外围一圈墙壁，左右各有窗户
-# - 门在底部中央 (y=11, x=7)
-# - 床放在左上角靠墙 (x=1-3, y=1-3)
-# - 桌椅组合放在右侧靠墙 (x=11-13, y=5-7)
-# - 中央区域保持开阔，便于通行
+# TileType 定义:
+#   10=地板, 11=墙壁, 12=窗户, 13=门, 14=桌子, 15=椅子
+#   16=床, 17=地毯, 18=书架, 19=植物, 20=箱子, 21=木箱
+# 
+# 布局设计（温馨木屋）：
+# - 外围一圈木墙，左右各有一扇窗户
+# - 门在底部中央
+# - 左上角：床（2格宽）靠墙，旁边有木箱当床头柜
+# - 右上角：书架靠墙，旁边有植物装饰
+# - 右下角：桌椅组合靠墙
+# - 中央铺设红色地毯
+# - 左下角：箱子储物区
 CABIN_INDOOR_MAP: List[List[int]] = [
     # y=0  (顶部墙壁)
     [11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11],
-    # y=1  (床占左上角 3x3)
-    [11, 16, 16, 16, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 11],
-    # y=2
-    [11, 16, 16, 16, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 12],
-    # y=3
-    [11, 16, 16, 16, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 11],
+    # y=1  (床占左上角 2格宽)
+    [11, 16, 16, 10, 10, 10, 17, 17, 10, 10, 10, 18, 10, 10, 11],
+    # y=2  (床 + 木箱床头柜)
+    [11, 16, 16, 21, 10, 10, 17, 17, 10, 10, 10, 10, 10, 10, 12],
+    # y=3  (墙壁 + 植物)
+    [11, 10, 10, 10, 10, 10, 17, 17, 10, 10, 10, 19, 10, 10, 11],
     # y=4  (左侧窗户)
     [12, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 11],
-    # y=5  (右侧桌椅区)
-    [11, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 14, 14, 14, 11],
-    # y=6
-    [11, 10, 10, 10, 10, 10, 10, 10, 10, 10, 15, 10, 10, 10, 11],
-    # y=7
-    [11, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 14, 14, 14, 11],
-    # y=8
+    # y=5  (中央开阔区域)
     [11, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 11],
-    # y=9
-    [11, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 12],
+    # y=6  (桌子区域开始)
+    [11, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 14, 14, 14, 11],
+    # y=7  (椅子 + 桌子)
+    [11, 10, 10, 10, 10, 10, 10, 10, 10, 10, 15, 10, 10, 10, 11],
+    # y=8  (桌子区域结束)
+    [11, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 14, 14, 14, 11],
+    # y=9  (箱子储物区 + 右侧窗户)
+    [11, 20, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 12],
     # y=10 (门前的开阔区域)
     [11, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 11],
     # y=11 (底部墙壁，中间有门)
@@ -154,8 +172,8 @@ class Scene:
         success = self.tilemap.load_tileset(
             tileset_path,
             original_size=16,
-            cols=49,
-            rows=22,
+            cols=12,
+            rows=11,
             scale=3
         )
         
@@ -317,6 +335,9 @@ class Scene:
             TileType.WALL,
             TileType.TABLE,
             TileType.BED,
+            TileType.BOOKSHELF,
+            TileType.CHEST,
+            TileType.CRATE,
         )
     
     def add_npc(self, npc: NPC) -> None:
