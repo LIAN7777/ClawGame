@@ -3,6 +3,7 @@ ClawGame - 交互系统模块
 管理玩家与 NPC 的交互
 """
 
+import os
 from typing import TYPE_CHECKING, List, Optional, Tuple
 
 import pygame
@@ -11,6 +12,24 @@ if TYPE_CHECKING:
     from game.entity.player import Player
     from game.entity.npc import NPC
     from game.camera import Camera
+
+
+def _get_font(size: int) -> pygame.font.Font:
+    """获取支持中文的字体"""
+    font_paths = [
+        "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+    ]
+    
+    for font_path in font_paths:
+        if os.path.exists(font_path):
+            try:
+                return pygame.font.Font(font_path, size)
+            except Exception:
+                continue
+    
+    return pygame.font.Font(None, size)
 
 
 class InteractionSystem:
@@ -169,8 +188,8 @@ class InteractionSystem:
         prompt_x = screen_x + npc.width // 2
         prompt_y = screen_y - 35
         
-        # 创建字体
-        font = pygame.font.Font(None, self.PROMPT_FONT_SIZE)
+        # 使用支持中文的字体
+        font = _get_font(self.PROMPT_FONT_SIZE)
         text_surface = font.render(self.INTERACTION_PROMPT, True, (0, 0, 0))
         text_rect = text_surface.get_rect()
         

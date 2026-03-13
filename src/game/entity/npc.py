@@ -19,18 +19,19 @@ if TYPE_CHECKING:
 def _get_chinese_font(size: int) -> pygame.font.Font:
     """获取支持中文的字体"""
     font_paths = [
+        "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
         "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
-        "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
         "/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc",
     ]
-
+    
     for font_path in font_paths:
         if os.path.exists(font_path):
             try:
                 return pygame.font.Font(font_path, size)
-            except:
+            except Exception:
                 continue
-
+    
     # 回退到默认字体
     return pygame.font.Font(None, size)
 
@@ -354,15 +355,15 @@ class NPC(Entity):
         pygame.draw.circle(surface, self.eye_color, (x, y), 1)
 
     def _draw_bubble(
-        self, 
-        surface: pygame.Surface, 
+        self,
+        surface: pygame.Surface,
         x: int,
         y: int,
         camera: Optional['Camera'] = None
     ) -> None:
         """
         绘制对话气泡
-        
+
         Args:
             surface: 目标渲染表面
             x: NPC 屏幕 X 坐标
@@ -372,7 +373,7 @@ class NPC(Entity):
         # 气泡位置（NPC 头顶）
         bubble_x = x + self.SPRITE_SIZE // 2
         bubble_y = y - 20
-        
+
         # 使用支持中文的字体
         font = _get_chinese_font(16)
         text_surface = font.render(self.bubble_text, True, (0, 0, 0))
