@@ -11,6 +11,7 @@ from game.camera import Camera
 from game.entity.player import Player
 from game.interaction import InteractionSystem
 from game.scene import Scene
+from game.custom_room_scene import CustomRoomScene
 from utils.asset_loader import AssetLoader
 
 
@@ -20,7 +21,8 @@ class Game:
     def __init__(
         self, 
         screen: pygame.Surface, 
-        asset_loader: Optional[AssetLoader] = None
+        asset_loader: Optional[AssetLoader] = None,
+        use_custom_room: bool = True
     ):
         """
         初始化游戏
@@ -28,9 +30,11 @@ class Game:
         Args:
             screen: pygame 显示表面
             asset_loader: 资源管理器实例（可选）
+            use_custom_room: 是否使用自定义房间场景（默认True）
         """
         self.screen = screen
         self.asset_loader = asset_loader
+        self.use_custom_room = use_custom_room
         
         # 使用配置中的内部渲染尺寸（用于相机和渲染逻辑）
         self.width = config.internal_width
@@ -56,7 +60,12 @@ class Game:
         self._last_dt: float = 0.0
         
         # 初始化场景
-        self.scene = Scene()
+        if use_custom_room:
+            print("[Game] 使用自定义房间场景")
+            self.scene = CustomRoomScene()
+        else:
+            print("[Game] 使用默认TileMap场景")
+            self.scene = Scene()
         
         # 初始化玩家
         spawn_x, spawn_y = self.scene.get_spawn_position()
@@ -66,6 +75,7 @@ class Game:
         
         # 初始化相机
         scene_width, scene_height = self.scene.get_pixel_size()
+        print(f"[Game] 场景尺寸: {scene_width}x{scene_height}px")
         self.camera = Camera(
             width=self.width,
             height=self.height,

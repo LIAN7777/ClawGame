@@ -326,17 +326,41 @@ class Player(Entity):
             self.hitbox_height
         )
         
+        # 检查场景是否有自定义碰撞检测方法
+        if hasattr(self.scene, 'is_position_walkable'):
+            # 使用场景的碰撞检测（用于CustomRoomScene）
+            # 检查碰撞盒的四个角和中心点
+            check_points = [
+                (new_hitbox.centerx, new_hitbox.centery),  # 中心
+                (new_hitbox.left, new_hitbox.top),          # 左上
+                (new_hitbox.right, new_hitbox.top),         # 右上
+                (new_hitbox.left, new_hitbox.bottom),       # 左下
+                (new_hitbox.right, new_hitbox.bottom),      # 右下
+            ]
+            
+            for px, py in check_points:
+                if not self.scene.is_position_walkable(float(px), float(py)):
+                    return False
+            
+            return True
+        
+        # 使用原来的tile-based碰撞检测（用于Scene）
+        tile_size = getattr(self.scene, 'tile_size', 48)
+        tilemap = getattr(self.scene, 'tilemap', None)
+        
+        if tilemap is None:
+            return True
+        
         # 获取碰撞盒覆盖的所有 tile
-        tile_size = self.scene.tile_size
         start_x = max(0, new_hitbox.left // tile_size)
         start_y = max(0, new_hitbox.top // tile_size)
-        end_x = min(self.scene.tilemap.width, (new_hitbox.right // tile_size) + 1)
-        end_y = min(self.scene.tilemap.height, (new_hitbox.bottom // tile_size) + 1)
+        end_x = min(tilemap.width, (new_hitbox.right // tile_size) + 1)
+        end_y = min(tilemap.height, (new_hitbox.bottom // tile_size) + 1)
         
         # 检查每个 tile
         for grid_y in range(start_y, end_y):
             for grid_x in range(start_x, end_x):
-                tile = self.scene.tilemap.get_tile(grid_x, grid_y)
+                tile = tilemap.get_tile(grid_x, grid_y)
                 if tile is None:
                     continue
                 
