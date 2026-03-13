@@ -97,13 +97,20 @@ class CustomRoomScene:
     
     def _load_assets(self):
         """加载所有素材"""
-        # 加载地板tiles
-        self.floor_tile_h = self._load_image("木地板tile_横.png")
-        self.floor_tile_v = self._load_image("木地板tile_竖.png")
+        # 地板tile目标尺寸：木门高度约120px，tile应在60px以下
+        # 使用48x48像素，让地板更密集
+        self.target_tile_size = 48
         
-        # 计算地板tile尺寸
-        self.floor_tile_width = self.floor_tile_h.get_width()
-        self.floor_tile_height = self.floor_tile_h.get_height()
+        # 加载地板tiles并缩放
+        raw_tile_h = self._load_image("木地板tile_横.png")
+        raw_tile_v = self._load_image("木地板tile_竖.png")
+        
+        self.floor_tile_h = pygame.transform.scale(raw_tile_h, (self.target_tile_size, self.target_tile_size))
+        self.floor_tile_v = pygame.transform.scale(raw_tile_v, (self.target_tile_size, self.target_tile_size))
+        
+        # 地板tile尺寸
+        self.floor_tile_width = self.target_tile_size
+        self.floor_tile_height = self.target_tile_size
         
         # 加载家具（并缩放到合适尺寸）
         # 门：缩放到约 80x120
@@ -142,12 +149,12 @@ class CustomRoomScene:
     def _setup_room_layout(self):
         """设置房间布局"""
         # 房间尺寸（使用地板tile的倍数）
-        # 地板tile: 408x423
-        # 我们创建一个合理的房间大小
+        # 地板tile: 48x48 (缩放后)
+        # 创建一个合理的房间大小
         
-        # 计算需要的tile数量
-        self.tiles_x = 3  # 横向3块地板
-        self.tiles_y = 2  # 纵向2块地板
+        # 计算需要的tile数量（720x480房间约需15x10块）
+        self.tiles_x = 15  # 横向15块地板 (15 * 48 = 720)
+        self.tiles_y = 10  # 纵向10块地板 (10 * 48 = 480)
         
         # 实际房间尺寸
         self.room_width = self.tiles_x * self.floor_tile_width
