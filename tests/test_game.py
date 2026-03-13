@@ -5,6 +5,7 @@
 import pytest
 import pygame
 from game.game import Game
+from config import config
 
 
 class TestGame:
@@ -15,8 +16,9 @@ class TestGame:
         screen = pygame.display.set_mode((800, 600))
         game = Game(screen)
         
-        assert game.width == 800
-        assert game.height == 600
+        # Game 类使用内部渲染尺寸（用于相机和渲染逻辑）
+        assert game.width == config.internal_width
+        assert game.height == config.internal_height
         assert game.running is True
         assert game.paused is False
     

@@ -6,6 +6,7 @@ from typing import Optional
 
 import pygame
 
+from config import config
 from game.camera import Camera
 from game.entity.player import Player
 from game.interaction import InteractionSystem
@@ -30,8 +31,10 @@ class Game:
         """
         self.screen = screen
         self.asset_loader = asset_loader
-        self.width = screen.get_width()
-        self.height = screen.get_height()
+        
+        # 使用配置中的内部渲染尺寸（用于相机和渲染逻辑）
+        self.width = config.internal_width
+        self.height = config.internal_height
         
         # 游戏状态
         self.running = True
@@ -70,8 +73,9 @@ class Game:
             world_height=scene_height
         )
         
-        # 让相机跟随玩家
-        self.camera.follow(self.player.rect, smooth=True)
+        # 让相机跟随玩家（不用平滑，立即定位）
+        self.camera.follow(self.player.rect, smooth=False)
+        self.camera.update()  # 立即更新相机位置到玩家
         
         # 初始化交互系统
         self.interaction_system = InteractionSystem()

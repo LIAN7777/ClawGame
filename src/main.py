@@ -4,6 +4,12 @@ ClawGame - 休闲养成小游戏
 """
 
 import sys
+from pathlib import Path
+
+# 添加 src 目录到 Python 路径（支持 python -m src.main 运行方式）
+src_path = Path(__file__).parent
+if str(src_path) not in sys.path:
+    sys.path.insert(0, str(src_path))
 
 import pygame
 
