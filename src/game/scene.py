@@ -3,12 +3,14 @@ ClawGame - 场景管理模块
 管理游戏场景，包含地图和实体
 """
 
+import os
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 import pygame
 
 from game.tilemap import TileMap
 from game.entity.npc import NPC
+from config.tiles import TileID, TILESET_PATH, get_scaled_size
 
 if TYPE_CHECKING:
     from game.camera import Camera
@@ -27,7 +29,7 @@ class TileType:
     RUG = 17         # 地毯
 
 
-# 木屋室内颜色配置
+# 木屋室内颜色配置（备用，当没有 tileset 时使用）
 CABIN_COLORS: Dict[int, Tuple[int, int, int]] = {
     TileType.FLOOR: (139, 90, 43),      # 棕色木地板
     TileType.WALL: (101, 67, 33),       # 深棕色墙壁
@@ -37,6 +39,18 @@ CABIN_COLORS: Dict[int, Tuple[int, int, int]] = {
     TileType.CHAIR: (139, 69, 19),      # 深棕色椅子
     TileType.BED: (178, 34, 34),        # 红木床架
     TileType.RUG: (85, 107, 47),        # 橄榄绿地毯
+}
+
+# Tile 类型到 Tileset ID 的映射
+TILE_TYPE_TO_TILESET: Dict[int, int] = {
+    TileType.FLOOR: TileID.FLOOR_WOOD_1,    # 木地板
+    TileType.WALL: TileID.WALL_BASIC,       # 墙壁
+    TileType.WINDOW: TileID.WALL_DECOR_1,   # 窗户（用装饰墙壁）
+    TileType.DOOR: TileID.DECOR_1,          # 门（用装饰物）
+    TileType.TABLE: TileID.TABLE_CHAIR_1,   # 桌子
+    TileType.CHAIR: TileID.CHAIR_1,         # 椅子
+    TileType.BED: TileID.DECOR_5,           # 床
+    TileType.RUG: TileID.DECOR_6,           # 地毯
 }
 
 
@@ -72,7 +86,7 @@ CABIN_INDOOR_MAP: List[List[int]] = [
 # 地图尺寸配置
 CABIN_MAP_WIDTH = 15   # 格子宽度
 CABIN_MAP_HEIGHT = 12  # 格子高度
-CABIN_TILE_SIZE = 32   # 每格 32 像素
+CABIN_TILE_SIZE = get_scaled_size()  # 每格 48 像素 (16 * 3)
 
 
 class Scene:
@@ -98,6 +112,9 @@ class Scene:
         # 扩展 TileMap 的颜色配置
         self._setup_colors()
         
+        # 加载 tileset
+        self._load_tileset()
+        
         # 实体列表（玩家和 NPC 等）
         self.entities: List = []
         
@@ -115,9 +132,31 @@ class Scene:
     
     def _setup_colors(self) -> None:
         """设置 Tile 颜色配置"""
-        # 合并木屋室内颜色到 TileMap
+        # 合并木屋室内颜色到 TileMap（备用）
         for tile_type, color in CABIN_COLORS.items():
             self.tilemap.TILE_COLORS[tile_type] = color
+    
+    def _load_tileset(self) -> None:
+        """加载 tileset 图片"""
+        # 获取 tileset 路径（相对于项目根目录）
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        tileset_path = os.path.join(base_dir, TILESET_PATH)
+        
+        # 加载 tileset
+        success = self.tilemap.load_tileset(
+            tileset_path,
+            original_size=16,
+            cols=49,
+            rows=22,
+            scale=3
+        )
+        
+        if success:
+            print(f"[Scene] 成功加载 tileset: {tileset_path}")
+            # 设置 tile ID 映射
+            self.tilemap.set_tile_id_map(TILE_TYPE_TO_TILESET)
+        else:
+            print(f"[Scene] 加载 tileset 失败，使用颜色块渲染")
     
     def load_cabin_scene(self) -> None:
         """加载木屋室内场景"""

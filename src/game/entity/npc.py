@@ -4,13 +4,25 @@ ClawGame - NPC 类模块
 """
 
 from enum import Enum
-from typing import TYPE_CHECKING, Optional, Tuple
+from typing import TYPE_CHECKING, Optional, Tuple, Dict
 
 import math
 import os
 import pygame
 
 from game.entity.entity import Entity
+from config.ui import (
+    NineSliceConfig,
+    DialogStyle,
+    STYLE_DEFAULT,
+    STYLE_GAME,
+    DEFAULT_NINE_SLICE,
+    DIALOG_BORDER_PATH,
+    DIALOG_BORDER_GREY_PATH,
+    DIALOG_BORDER_DEPTH_PATH,
+    DIALOG_ARROW_PATH,
+    get_full_path,
+)
 
 if TYPE_CHECKING:
     from game.camera import Camera
@@ -106,6 +118,185 @@ class NPCState(Enum):
     """NPC 状态枚举"""
     IDLE = 0      # 闲置
     TALKING = 1   # 对话中
+
+
+# ============================================================
+# 9-Slice 渲染器（模块级别缓存）
+# ============================================================
+
+class NineSliceRenderer:
+    """
+    9-Slice 边框渲染器
+    
+    支持从单张边框图片切分出 9 个区域，并拉伸渲染到任意尺寸的矩形。
+    """
+    
+    # 缓存已加载的边框图片
+    _border_cache: Dict[str, pygame.Surface] = {}
+    _arrow_cache: Dict[str, pygame.Surface] = {}
+    
+    @classmethod
+    def load_border(cls, path: str) -> pygame.Surface:
+        """
+        加载边框图片（带缓存）
+        
+        Args:
+            path: 图片路径
+            
+        Returns:
+            pygame.Surface: 边框图片
+        """
+        full_path = get_full_path(path)
+        
+        if full_path not in cls._border_cache:
+            if os.path.exists(full_path):
+                cls._border_cache[full_path] = pygame.image.load(full_path).convert_alpha()
+            else:
+                print(f"警告: 边框图片不存在: {full_path}")
+                # 创建一个默认的边框表面
+                default_surface = pygame.Surface((384, 128), pygame.SRCALPHA)
+                pygame.draw.rect(default_surface, (255, 255, 255, 240), (0, 0, 384, 128), border_radius=16)
+                pygame.draw.rect(default_surface, (100, 100, 100, 255), (0, 0, 384, 128), width=2, border_radius=16)
+                cls._border_cache[full_path] = default_surface
+        
+        return cls._border_cache[full_path]
+    
+    @classmethod
+    def load_arrow(cls, path: str) -> pygame.Surface:
+        """
+        加载箭头图片（带缓存）
+        
+        Args:
+            path: 图片路径
+            
+        Returns:
+            pygame.Surface: 箭头图片
+        """
+        full_path = get_full_path(path)
+        
+        if full_path not in cls._arrow_cache:
+            if os.path.exists(full_path):
+                cls._arrow_cache[full_path] = pygame.image.load(full_path).convert_alpha()
+            else:
+                # 创建默认箭头
+                default_arrow = pygame.Surface((24, 16), pygame.SRCALPHA)
+                pygame.draw.polygon(
+                    default_arrow,
+                    (255, 255, 255, 240),
+                    [(12, 0), (24, 16), (0, 16)]
+                )
+                cls._arrow_cache[full_path] = default_arrow
+        
+        return cls._arrow_cache[full_path]
+    
+    @classmethod
+    def draw_9slice(
+        cls,
+        surface: pygame.Surface,
+        border_img: pygame.Surface,
+        rect: pygame.Rect,
+        config: NineSliceConfig = None
+    ) -> None:
+        """
+        绘制 9-slice 边框
+        
+        将边框图片切分为 9 个区域，拉伸渲染到目标矩形。
+        
+        布局:
+        ┌────┬────────┬────┐
+        │ TL │   T    │ TR │
+        ├────┼────────┼────┤
+        │ L  │   C    │ R  │
+        ├────┼────────┼────┤
+        │ BL │   B    │ BR │
+        └────┴────────┴────┘
+        
+        Args:
+            surface: 目标渲染表面
+            border_img: 边框源图片
+            rect: 目标矩形区域
+            config: 9-slice 配置
+        """
+        if config is None:
+            config = DEFAULT_NINE_SLICE
+        
+        # 获取源图片尺寸
+        src_w, src_h = border_img.get_size()
+        
+        # 边框尺寸
+        bl = config.border_left
+        br = config.border_right
+        bt = config.border_top
+        bb = config.border_bottom
+        
+        # 确保边框尺寸不超过图片尺寸
+        if bl + br > rect.width or bt + bb > rect.height:
+            # 目标太小，直接缩放整个图片
+            scaled = pygame.transform.scale(border_img, (rect.width, rect.height))
+            surface.blit(scaled, rect.topleft)
+            return
+        
+        # 目标区域尺寸
+        dst_w, dst_h = rect.width, rect.height
+        
+        # 中心区域尺寸（可拉伸部分）
+        center_w = dst_w - bl - br
+        center_h = dst_h - bt - bb
+        
+        # 源图片中心区域尺寸
+        src_center_w = src_w - bl - br
+        src_center_h = src_h - bt - bb
+        
+        # 目标位置
+        dx, dy = rect.x, rect.y
+        
+        # === 1. 绘制四个角（不拉伸）===
+        # 左上角
+        corner_tl = border_img.subsurface(pygame.Rect(0, 0, bl, bt))
+        surface.blit(corner_tl, (dx, dy))
+        
+        # 右上角
+        corner_tr = border_img.subsurface(pygame.Rect(src_w - br, 0, br, bt))
+        surface.blit(corner_tr, (dx + dst_w - br, dy))
+        
+        # 左下角
+        corner_bl = border_img.subsurface(pygame.Rect(0, src_h - bb, bl, bb))
+        surface.blit(corner_bl, (dx, dy + dst_h - bb))
+        
+        # 右下角
+        corner_br = border_img.subsurface(pygame.Rect(src_w - br, src_h - bb, br, bb))
+        surface.blit(corner_br, (dx + dst_w - br, dy + dst_h - bb))
+        
+        # === 2. 绘制四条边（单向拉伸）===
+        # 上边（水平拉伸）
+        if center_w > 0 and src_center_w > 0:
+            edge_t = border_img.subsurface(pygame.Rect(bl, 0, src_center_w, bt))
+            edge_t_scaled = pygame.transform.scale(edge_t, (center_w, bt))
+            surface.blit(edge_t_scaled, (dx + bl, dy))
+        
+        # 下边（水平拉伸）
+        if center_w > 0 and src_center_w > 0:
+            edge_b = border_img.subsurface(pygame.Rect(bl, src_h - bb, src_center_w, bb))
+            edge_b_scaled = pygame.transform.scale(edge_b, (center_w, bb))
+            surface.blit(edge_b_scaled, (dx + bl, dy + dst_h - bb))
+        
+        # 左边（垂直拉伸）
+        if center_h > 0 and src_center_h > 0:
+            edge_l = border_img.subsurface(pygame.Rect(0, bt, bl, src_center_h))
+            edge_l_scaled = pygame.transform.scale(edge_l, (bl, center_h))
+            surface.blit(edge_l_scaled, (dx, dy + bt))
+        
+        # 右边（垂直拉伸）
+        if center_h > 0 and src_center_h > 0:
+            edge_r = border_img.subsurface(pygame.Rect(src_w - br, bt, br, src_center_h))
+            edge_r_scaled = pygame.transform.scale(edge_r, (br, center_h))
+            surface.blit(edge_r_scaled, (dx + dst_w - br, dy + bt))
+        
+        # === 3. 绘制中心区域（双向拉伸）===
+        if center_w > 0 and center_h > 0 and src_center_w > 0 and src_center_h > 0:
+            center = border_img.subsurface(pygame.Rect(bl, bt, src_center_w, src_center_h))
+            center_scaled = pygame.transform.scale(center, (center_w, center_h))
+            surface.blit(center_scaled, (dx + bl, dy + bt))
 
 
 class NPC(Entity):
@@ -428,7 +619,7 @@ class NPC(Entity):
         camera: Optional['Camera'] = None
     ) -> None:
         """
-        绘制对话气泡
+        绘制对话气泡（使用 9-slice 边框）
 
         Args:
             surface: 目标渲染表面
@@ -436,54 +627,85 @@ class NPC(Entity):
             y: NPC 屏幕 Y 坐标
             camera: 相机对象
         """
-        # 气泡位置（NPC 头顶）
-        bubble_x = x + self.SPRITE_SIZE // 2
-        bubble_y = y - 20
-
+        # 获取样式配置
+        style = STYLE_DEFAULT
+        
         # 使用支持中文的字体
         font = _get_chinese_font(16)
-        text_surface = font.render(self.bubble_text, True, (0, 0, 0))
+        text_surface = font.render(self.bubble_text, True, style.text_color)
         text_rect = text_surface.get_rect()
-
-        # 气泡尺寸（留出内边距）
-        padding = 8
-        bubble_width = text_rect.width + padding * 2
-        bubble_height = text_rect.height + padding * 2
-
-        # 气泡矩形
-        bubble_rect = pygame.Rect(
-            bubble_x - bubble_width // 2,
-            bubble_y - bubble_height,
-            bubble_width,
-            bubble_height
+        
+        # 计算气泡尺寸（包含内边距）
+        from config.ui import calculate_bubble_size
+        bubble_width, bubble_height = calculate_bubble_size(
+            text_rect.width,
+            text_rect.height,
+            style
         )
-
-        # 绘制气泡背景（白色圆角矩形）
-        pygame.draw.rect(
-            surface,
-            (255, 255, 255),
-            bubble_rect,
-            border_radius=6
-        )
-
-        # 绘制气泡边框
-        pygame.draw.rect(
-            surface,
-            (100, 100, 100),
-            bubble_rect,
-            width=1,
-            border_radius=6
-        )
-
-        # 绘制小三角（指向 NPC）
-        triangle_points = [
-            (bubble_x - 4, bubble_y),
-            (bubble_x + 4, bubble_y),
-            (bubble_x, bubble_y + 6)
-        ]
-        pygame.draw.polygon(surface, (255, 255, 255), triangle_points)
-
-        # 绘制文本
+        
+        # 确保最小尺寸能容纳 9-slice 边框
+        min_size = DEFAULT_NINE_SLICE.border_left + DEFAULT_NINE_SLICE.border_right
+        bubble_width = max(bubble_width, min_size)
+        bubble_height = max(bubble_height, min_size)
+        
+        # 气泡位置（NPC 头顶，居中对齐）
+        bubble_x = x + self.SPRITE_SIZE // 2 - bubble_width // 2
+        bubble_y = y - bubble_height - style.arrow_height - style.arrow_offset - 10
+        
+        # 确保气泡在屏幕内
+        screen_width = surface.get_width()
+        if bubble_x < style.border_width:
+            bubble_x = style.border_width
+        elif bubble_x + bubble_width > screen_width - style.border_width:
+            bubble_x = screen_width - bubble_width - style.border_width
+        
+        # 创建气泡矩形
+        bubble_rect = pygame.Rect(bubble_x, bubble_y, bubble_width, bubble_height)
+        
+        # === 加载并绘制 9-slice 边框 ===
+        try:
+            border_img = NineSliceRenderer.load_border(DIALOG_BORDER_PATH)
+            NineSliceRenderer.draw_9slice(
+                surface,
+                border_img,
+                bubble_rect,
+                DEFAULT_NINE_SLICE
+            )
+        except Exception as e:
+            # 回退到简单矩形
+            print(f"警告: 无法加载边框图片，使用简单矩形: {e}")
+            pygame.draw.rect(
+                surface,
+                style.background_color,
+                bubble_rect,
+                border_radius=style.border_radius
+            )
+            pygame.draw.rect(
+                surface,
+                style.border_color,
+                bubble_rect,
+                width=style.border_width,
+                border_radius=style.border_radius
+            )
+        
+        # === 绘制箭头（指向 NPC）===
+        try:
+            arrow_img = NineSliceRenderer.load_arrow(DIALOG_ARROW_PATH)
+            # 箭头位置：气泡底部中央下方
+            arrow_x = bubble_rect.centerx - arrow_img.get_width() // 2
+            arrow_y = bubble_rect.bottom + style.arrow_offset
+            surface.blit(arrow_img, (arrow_x, arrow_y))
+        except Exception as e:
+            # 回退到绘制三角形
+            print(f"警告: 无法加载箭头图片: {e}")
+            triangle_points = [
+                (bubble_rect.centerx - 6, bubble_rect.bottom + style.arrow_offset),
+                (bubble_rect.centerx + 6, bubble_rect.bottom + style.arrow_offset),
+                (bubble_rect.centerx, bubble_rect.bottom + style.arrow_offset + style.arrow_height)
+            ]
+            pygame.draw.polygon(surface, style.background_color, triangle_points)
+        
+        # === 绘制文本 ===
         text_pos = (
             bubble_rect.centerx - text_rect.width // 2,
             bubble_rect.centery - text_rect.height // 2

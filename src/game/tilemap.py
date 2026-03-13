@@ -44,9 +44,10 @@ class TileMap:
     
     管理 tile 地图的加载、存储和渲染。
     支持从 2D 数组加载地图数据。
+    支持从外部 tileset 图片加载 tile 图形。
     """
     
-    # 预定义的 Tile 类型颜色（用于渲染占位）
+    # 预定义的 Tile 类型颜色（用于渲染占位，当没有 tileset 时使用）
     TILE_COLORS: Dict[int, Tuple[int, int, int]] = {
         0: (34, 139, 34),    # 草地 - 绿色
         1: (139, 90, 43),    # 泥土 - 棕色
@@ -74,6 +75,101 @@ class TileMap:
         # 地图尺寸（像素）
         self.pixel_width: int = 0
         self.pixel_height: int = 0
+        
+        # Tileset 相关
+        self._tileset_surface: Optional[pygame.Surface] = None
+        self._tileset_scaled: Optional[pygame.Surface] = None
+        self._tileset_cols: int = 0
+        self._tileset_rows: int = 0
+        self._original_tile_size: int = 16  # 原始 tile 尺寸
+        self._tile_scale: int = 1  # 缩放倍数
+        
+        # Tile ID 映射表 (tile_type -> tileset_id)
+        self._tile_id_map: Dict[int, int] = {}
+    
+    def load_tileset(
+        self, 
+        path: str, 
+        original_size: int = 16,
+        cols: int = 49,
+        rows: int = 22,
+        scale: int = 3
+    ) -> bool:
+        """
+        加载外部 tileset 图片
+        
+        Args:
+            path: tileset 图片路径
+            original_size: 原始 tile 尺寸（像素）
+            cols: tileset 列数
+            rows: tileset 行数
+            scale: 缩放倍数
+        
+        Returns:
+            是否加载成功
+        """
+        try:
+            # 加载图片
+            self._tileset_surface = pygame.image.load(path).convert_alpha()
+            
+            # 保存配置
+            self._original_tile_size = original_size
+            self._tileset_cols = cols
+            self._tileset_rows = rows
+            self._tile_scale = scale
+            
+            # 计算缩放后的尺寸
+            scaled_size = original_size * scale
+            
+            # 创建缩放后的 tileset
+            scaled_width = cols * scaled_size
+            scaled_height = rows * scaled_size
+            self._tileset_scaled = pygame.Surface(
+                (scaled_width, scaled_height), 
+                pygame.SRCALPHA
+            )
+            
+            # 缩放整个 tileset
+            for row in range(rows):
+                for col in range(cols):
+                    # 提取原始 tile
+                    src_rect = pygame.Rect(
+                        col * original_size,
+                        row * original_size,
+                        original_size,
+                        original_size
+                    )
+                    tile_surface = self._tileset_surface.subsurface(src_rect)
+                    
+                    # 缩放 tile
+                    scaled_tile = pygame.transform.scale(
+                        tile_surface,
+                        (scaled_size, scaled_size)
+                    )
+                    
+                    # 放入缩放后的 tileset
+                    dst_pos = (
+                        col * scaled_size,
+                        row * scaled_size
+                    )
+                    self._tileset_scaled.blit(scaled_tile, dst_pos)
+            
+            return True
+            
+        except Exception as e:
+            print(f"[TileMap] 加载 tileset 失败: {e}")
+            self._tileset_surface = None
+            self._tileset_scaled = None
+            return False
+    
+    def set_tile_id_map(self, mapping: Dict[int, int]) -> None:
+        """
+        设置 tile 类型到 tileset ID 的映射
+        
+        Args:
+            mapping: {tile_type: tileset_id} 映射表
+        """
+        self._tile_id_map = mapping
     
     def load_from_array(self, data: List[List[int]]) -> None:
         """
@@ -231,15 +327,61 @@ class TileMap:
             screen_x -= int(camera.x)
             screen_y -= int(camera.y)
         
-        # 获取颜色
-        color = self.TILE_COLORS.get(tile.tile_type, self.TILE_COLORS[-1])
+        # 如果有 tileset，使用图片渲染
+        if self._tileset_scaled and tile.tile_type in self._tile_id_map:
+            tileset_id = self._tile_id_map[tile.tile_type]
+            self._render_tile_from_tileset(
+                surface, tileset_id, screen_x, screen_y
+            )
+        else:
+            # 回退到颜色块渲染
+            color = self.TILE_COLORS.get(tile.tile_type, self.TILE_COLORS[-1])
+            rect = pygame.Rect(screen_x, screen_y, self.tile_size, self.tile_size)
+            pygame.draw.rect(surface, color, rect)
+    
+    def _render_tile_from_tileset(
+        self,
+        surface: pygame.Surface,
+        tileset_id: int,
+        screen_x: int,
+        screen_y: int
+    ) -> None:
+        """
+        从 tileset 渲染单个 tile
         
-        # 绘制矩形
-        rect = pygame.Rect(screen_x, screen_y, self.tile_size, self.tile_size)
-        pygame.draw.rect(surface, color, rect)
+        Args:
+            surface: 目标渲染表面
+            tileset_id: tileset 中的 tile ID (从 1 开始)
+            screen_x: 屏幕 X 坐标
+            screen_y: 屏幕 Y 坐标
+        """
+        if not self._tileset_scaled:
+            return
         
-        # 绘制边框（可选，用于调试）
-        # pygame.draw.rect(surface, (0, 0, 0), rect, 1)
+        # 计算缩放后的 tile 尺寸
+        scaled_size = self._original_tile_size * self._tile_scale
+        
+        # tileset_id 从 1 开始，转换为 0 开始的索引
+        index = tileset_id - 1
+        
+        # 计算在 tileset 中的位置
+        col = index % self._tileset_cols
+        row = index // self._tileset_cols
+        
+        # 提取缩放后的 tile
+        src_rect = pygame.Rect(
+            col * scaled_size,
+            row * scaled_size,
+            scaled_size,
+            scaled_size
+        )
+        
+        # 绘制到目标表面
+        surface.blit(
+            self._tileset_scaled,
+            (screen_x, screen_y),
+            src_rect
+        )
     
     def set_tile(self, x: int, y: int, tile_type: int) -> None:
         """
