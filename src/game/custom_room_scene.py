@@ -112,17 +112,17 @@ class CustomRoomScene:
         self.floor_tile_width = self.target_tile_size
         self.floor_tile_height = self.target_tile_size
         
-        # 加载家具（并缩放到合适尺寸，尺寸x2）
-        # 门：缩放到约 160x240
-        self.door_img = self._load_and_scale("木门.png", 160, 240)
-        # 冰箱：缩放到约 120x200
-        self.fridge_img = self._load_and_scale("冰箱.png", 120, 200)
-        # 椅子：缩放到约 100x110
-        self.chair_img = self._load_and_scale("椅子.png", 100, 110)
-        # 桌子：缩放到约 180x120
-        self.table_img = self._load_and_scale("桌子.png", 180, 120)
-        # 电视机：缩放到约 200x160
-        self.tv_img = self._load_and_scale("电视机.png", 200, 160)
+        # 加载家具（并缩放到合适尺寸，尺寸x1.5）
+        # 门：缩放到约 120x180
+        self.door_img = self._load_and_scale("木门.png", 120, 180)
+        # 冰箱：缩放到约 90x150
+        self.fridge_img = self._load_and_scale("冰箱.png", 90, 150)
+        # 椅子：缩放到约 75x82
+        self.chair_img = self._load_and_scale("椅子.png", 75, 82)
+        # 桌子：缩放到约 135x90
+        self.table_img = self._load_and_scale("桌子.png", 135, 90)
+        # 电视机：缩放到约 150x120
+        self.tv_img = self._load_and_scale("电视机.png", 150, 120)
         
         print(f"[CustomRoomScene] 素材加载完成")
         print(f"  地板tile: {self.floor_tile_width}x{self.floor_tile_height}")
@@ -149,12 +149,9 @@ class CustomRoomScene:
     def _setup_room_layout(self):
         """设置房间布局"""
         # 房间尺寸（使用地板tile的倍数）
-        # 地板tile: 48x48 (缩放后)
-        # 创建一个合理的房间大小
-        
-        # 计算需要的tile数量（720x480房间约需15x10块）
-        self.tiles_x = 15  # 横向15块地板 (15 * 48 = 720)
-        self.tiles_y = 10  # 纵向10块地板 (10 * 48 = 480)
+        # 扩大房间以容纳更多家具
+        self.tiles_x = 20  # 横向20块地板 (20 * 32 = 640)
+        self.tiles_y = 15  # 纵向15块地板 (15 * 32 = 480)
         
         # 实际房间尺寸
         self.room_width = self.tiles_x * self.floor_tile_width
@@ -167,11 +164,12 @@ class CustomRoomScene:
         self.total_width = self.room_width + self.wall_thickness * 2
         self.total_height = self.room_height + self.wall_thickness * 2
         
-        # 门的位置（底部中央）
+        # 门的位置（底部中央，门底部在房间底部）
         self.door_width = self.door_img.get_width()
         self.door_height = self.door_img.get_height()
         self.door_x = (self.total_width - self.door_width) // 2
-        self.door_y = self.total_height - self.door_height // 2  # 门底部对齐底部墙
+        # 门放置在房间内部底部，底部对齐下墙壁顶部
+        self.door_y = self.total_height - self.wall_thickness - self.door_height
         
         print(f"[CustomRoomScene] 房间布局:")
         print(f"  地板: {self.tiles_x}x{self.tiles_y} = {self.room_width}x{self.room_height}px")
@@ -189,12 +187,13 @@ class CustomRoomScene:
         inner_right = wx + self.room_width
         inner_bottom = wy + self.room_height
         
-        # 门的禁区（底部中央区域，家具不能放这里）
+        # 门的禁区（底部中央区域，家具不能放这里，确保出生点安全）
+        # 禁区只需要覆盖门和门前小区域
         door_clear_zone = pygame.Rect(
-            self.door_x - 50,
-            self.total_height - self.door_img.get_height() - 100,
-            self.door_img.get_width() + 100,
-            self.door_img.get_height() + 150
+            self.door_x - 40,  # 左侧扩展40px
+            self.door_y - 80,  # 门前扩展80px（覆盖出生点）
+            self.door_img.get_width() + 80,  # 右侧扩展40px
+            self.door_img.get_height() + 100  # 底部扩展
         )
         
         print(f"[CustomRoomScene] 房间内部区域: ({inner_left}, {inner_top}) 到 ({inner_right}, {inner_bottom})")
@@ -232,28 +231,44 @@ class CustomRoomScene:
             "木门",
             self.door_img,
             self.door_x,
-            self.total_height - self.door_img.get_height(),
+            self.door_y,
             collidable=False
         )
         self.furniture.append(door)
         placed_rects.append(door.get_rect())
         
-        # 2. 冰箱（靠左墙或左下角）
+        # 2. 冰箱（靠左墙，确保不在门禁区）
         fridge_positions = [
-            (inner_left + 30, inner_bottom - self.fridge_img.get_height() - 30),  # 左下角
             (inner_left + 30, inner_top + 50),  # 左上角
+            (inner_left + 30, inner_top + 200),  # 左侧中间
         ]
-        fridge_x, fridge_y = random.choice(fridge_positions)
-        fridge = FurnitureItem("冰箱", self.fridge_img, fridge_x, fridge_y, collidable=True)
-        self.furniture.append(fridge)
-        placed_rects.append(fridge.get_rect())
+        for fridge_x, fridge_y in fridge_positions:
+            fridge_rect = pygame.Rect(fridge_x, fridge_y, self.fridge_img.get_width(), self.fridge_img.get_height())
+            if can_place(fridge_rect):
+                fridge = FurnitureItem("冰箱", self.fridge_img, fridge_x, fridge_y, collidable=True)
+                self.furniture.append(fridge)
+                placed_rects.append(fridge.get_rect())
+                break
         
-        # 3. 电视机（靠右墙）
-        tv_x = inner_right - self.tv_img.get_width() - 30
-        tv_y = random.randint(inner_top + 30, inner_top + 150)
-        tv = FurnitureItem("电视机", self.tv_img, tv_x, tv_y, collidable=True)
-        self.furniture.append(tv)
-        placed_rects.append(tv.get_rect())
+        # 3. 电视机（右上角或右上方，确保不在门禁区）
+        tv_positions = [
+            (inner_right - self.tv_img.get_width() - 30, inner_top + 30),  # 右上角
+        ]
+        for tv_x, tv_y in tv_positions:
+            tv_rect = pygame.Rect(tv_x, tv_y, self.tv_img.get_width(), self.tv_img.get_height())
+            # 不检查门禁区，因为右上角肯定不在门禁区
+            # 只检查与其他家具冲突
+            conflict = False
+            for existing in placed_rects:
+                expanded = existing.inflate(30, 30)
+                if tv_rect.colliderect(expanded):
+                    conflict = True
+                    break
+            if not conflict:
+                tv = FurnitureItem("电视机", self.tv_img, tv_x, tv_y, collidable=True)
+                self.furniture.append(tv)
+                placed_rects.append(tv.get_rect())
+                break
         
         # 4. 多张桌子（2张）
         for i in range(2):
@@ -410,11 +425,11 @@ class CustomRoomScene:
         return (self.tiles_x, self.tiles_y)
     
     def get_spawn_position(self) -> Tuple[float, float]:
-        """获取玩家出生位置（门前）"""
-        return (
-            float(self.door_x + self.door_width // 2),
-            float(self.total_height - self.wall_thickness - 50)
-        )
+        """获取玩家出生位置（门内安全区域）"""
+        # 出生点在门的正前方，确保在门禁区内
+        spawn_x = float(self.door_x + self.door_width // 2)
+        spawn_y = float(self.door_y - 50)  # 在门前50像素处
+        return (spawn_x, spawn_y)
     
     def is_position_walkable(self, x: float, y: float) -> bool:
         """检查位置是否可通行"""
