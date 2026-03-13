@@ -690,6 +690,47 @@ class NPC(Entity):
         # 眼珠（居中）
         pygame.draw.circle(surface, self.eye_color, (x, y), 1)
 
+    def _calculate_text_lines(
+        self,
+        text: str,
+        font: pygame.font.Font,
+        max_width: int
+    ) -> Tuple[int, int, list]:
+        """
+        计算文本所需尺寸，支持自动换行
+        
+        Args:
+            text: 要显示的文本
+            font: 字体对象
+            max_width: 最大宽度限制
+        
+        Returns:
+            (最大行宽度, 总高度, 行列表)
+        """
+        lines = []
+        current_line = ""
+        
+        for char in text:
+            test_line = current_line + char
+            if font.size(test_line)[0] <= max_width:
+                current_line = test_line
+            else:
+                if current_line:
+                    lines.append(current_line)
+                current_line = char
+        
+        if current_line:
+            lines.append(current_line)
+        
+        if not lines:
+            return 0, 0, []
+        
+        line_height = font.get_linesize()
+        total_height = len(lines) * line_height
+        max_line_width = max(font.size(line)[0] for line in lines)
+        
+        return max_line_width, total_height, lines
+
     def _draw_bubble(
         self,
         surface: pygame.Surface,
@@ -711,27 +752,39 @@ class NPC(Entity):
         
         # 使用支持中文的字体 - 缩小为 12px
         font = _get_chinese_font(12)
-        text_surface = font.render(self.bubble_text, True, style.text_color)
-        text_rect = text_surface.get_rect()
         
-        # 计算气泡尺寸（包含内边距）- 缩小 30%
-        from config.ui import calculate_bubble_size
-        bubble_width, bubble_height = calculate_bubble_size(
-            text_rect.width,
-            text_rect.height,
-            style
+        # 文本最大宽度限制（屏幕宽度的 60%）
+        screen_width = surface.get_width()
+        max_text_width = int(screen_width * 0.6)
+        
+        # 计算文本换行
+        text_width, text_height, lines = self._calculate_text_lines(
+            self.bubble_text, font, max_text_width
         )
         
-        # 整体缩小 30%
-        bubble_width = int(bubble_width * 0.7)
-        bubble_height = int(bubble_height * 0.7)
+        if not lines:
+            return
         
-        # 使用缩小的 9-slice 边框配置（边框宽度 8px，更细）
+        # 气泡内边距
+        padding_x = 10
+        padding_y = 6
+        
+        # 计算气泡尺寸（根据文本实际尺寸动态调整）
+        bubble_width = text_width + padding_x * 2
+        bubble_height = text_height + padding_y * 2
+        
+        # 确保最小尺寸
+        min_width = 40
+        min_height = 24
+        bubble_width = max(bubble_width, min_width)
+        bubble_height = max(bubble_height, min_height)
+        
+        # 使用缩小的 9-slice 边框配置（边框宽度 6px，更细）
         small_nine_slice = NineSliceConfig(
-            border_left=8,
-            border_right=8,
-            border_top=8,
-            border_bottom=8
+            border_left=6,
+            border_right=6,
+            border_top=6,
+            border_bottom=6
         )
         
         # 确保最小尺寸能容纳 9-slice 边框
@@ -739,12 +792,16 @@ class NPC(Entity):
         bubble_width = max(bubble_width, min_size)
         bubble_height = max(bubble_height, min_size)
         
+        # 三角形尺寸（缩小到合理比例：宽度 10-12 像素）
+        triangle_width = 10
+        triangle_height = 6
+        triangle_offset = 2  # 与气泡的间距
+        
         # 气泡位置（NPC 头顶，居中对齐）
         bubble_x = x + self.SPRITE_SIZE // 2 - bubble_width // 2
-        bubble_y = y - bubble_height - style.arrow_height - style.arrow_offset - 10
+        bubble_y = y - bubble_height - triangle_height - triangle_offset - 8
         
         # 确保气泡在屏幕内
-        screen_width = surface.get_width()
         if bubble_x < style.border_width:
             bubble_x = style.border_width
         elif bubble_x + bubble_width > screen_width - style.border_width:
@@ -779,37 +836,27 @@ class NPC(Entity):
                 border_radius=style.border_radius
             )
         
-        # === 绘制箭头（指向 NPC）===
-        try:
-            arrow_img = NineSliceRenderer.load_arrow(DIALOG_ARROW_PATH)
-            # 箭头也缩小 30%（与对话框缩放比例一致）
-            scale_factor = 0.7
-            arrow_w = int(arrow_img.get_width() * scale_factor)
-            arrow_h = int(arrow_img.get_height() * scale_factor)
-            arrow_scaled = pygame.transform.scale(arrow_img, (arrow_w, arrow_h))
-            # 箭头位置：气泡底部中央下方
-            arrow_x = bubble_rect.centerx - arrow_w // 2
-            arrow_y = bubble_rect.bottom + style.arrow_offset
-            surface.blit(arrow_scaled, (arrow_x, arrow_y))
-        except Exception as e:
-            # 回退到绘制三角形（缩小 30%）
-            print(f"警告: 无法加载箭头图片: {e}")
-            # 原始尺寸缩小 30%
-            half_base = int(6 * 0.7)  # 底边一半
-            height = int(style.arrow_height * 0.7)
-            triangle_points = [
-                (bubble_rect.centerx - half_base, bubble_rect.bottom + style.arrow_offset),
-                (bubble_rect.centerx + half_base, bubble_rect.bottom + style.arrow_offset),
-                (bubble_rect.centerx, bubble_rect.bottom + style.arrow_offset + height)
-            ]
-            pygame.draw.polygon(surface, style.background_color, triangle_points)
+        # === 绘制三角形（指向 NPC）===
+        # 三角形位置：气泡底部中央下方
+        triangle_points = [
+            (bubble_rect.centerx - triangle_width // 2, bubble_rect.bottom + triangle_offset),
+            (bubble_rect.centerx + triangle_width // 2, bubble_rect.bottom + triangle_offset),
+            (bubble_rect.centerx, bubble_rect.bottom + triangle_offset + triangle_height)
+        ]
+        pygame.draw.polygon(surface, style.background_color, triangle_points)
         
-        # === 绘制文本 ===
-        text_pos = (
-            bubble_rect.centerx - text_rect.width // 2,
-            bubble_rect.centery - text_rect.height // 2
-        )
-        surface.blit(text_surface, text_pos)
+        # === 绘制文本（支持多行）===
+        line_height = font.get_linesize()
+        start_y = bubble_rect.centery - (len(lines) * line_height) // 2
+        
+        for i, line in enumerate(lines):
+            line_surface = font.render(line, True, style.text_color)
+            line_rect = line_surface.get_rect()
+            line_pos = (
+                bubble_rect.centerx - line_rect.width // 2,
+                start_y + i * line_height
+            )
+            surface.blit(line_surface, line_pos)
 
     def __repr__(self) -> str:
         """字符串表示"""
