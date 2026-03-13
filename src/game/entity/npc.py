@@ -27,16 +27,62 @@ from config.ui import (
 if TYPE_CHECKING:
     from game.camera import Camera
 
-# 尝试加载中文字体
+# 字体文件路径（优先使用本地资源）
+_FONT_PATHS = {
+    # 项目本地字体（优先）
+    'press_start_2p': "/root/.openclaw/workspace-clawgame/assets/fonts/PressStart2P-Regular.ttf",
+    'noto_cjk': "/root/.openclaw/workspace-clawgame/assets/fonts/NotoSansCJK-Bold.ttc",
+    # 系统字体（备用）
+    'noto_cjk_system': "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+}
+
+# 字体缓存
+_font_cache: dict = {}
+
+
 def _get_chinese_font(size: int) -> pygame.font.Font:
     """
     获取支持中文的字体
     
-    优先使用系统字体，兼容 Windows/Linux/macOS
+    优先级：
+    1. 项目本地字体：Press Start 2P（英文）+ Noto Sans CJK（中文）
+    2. 系统字体：Noto Sans CJK, 微软雅黑等
+    3. 回退：默认字体
+    
+    Args:
+        size: 字体大小
+    
+    Returns:
+        pygame.font.Font: 字体对象
     """
-    # 尝试使用 SysFont 查找系统中文字体
-    # Windows 字体名称格式多样，需要尝试多种写法
+    # 检查缓存
+    cache_key = f"chinese_{size}"
+    if cache_key in _font_cache:
+        return _font_cache[cache_key]
+    
+    font = None
+    
+    # 1. 优先使用 Noto Sans CJK（本地或系统）
+    noto_path = _FONT_PATHS.get('noto_cjk')
+    if noto_path and os.path.exists(noto_path):
+        try:
+            font = pygame.font.Font(noto_path, size)
+            test_surface = font.render('你好', True, (0, 0, 0))
+            w, h = test_surface.get_size()
+            if w > 15 and h > 5:
+                _font_cache[cache_key] = font
+                print(f"字体加载成功: Noto Sans CJK ({noto_path})")
+                return font
+        except Exception as e:
+            print(f"Noto Sans CJK 加载失败: {e}")
+    
+    # 2. 尝试系统字体（SysFont）
     chinese_font_names = [
+        # Linux/macOS - Noto
+        'Noto Sans CJK SC',
+        'Noto Sans CJK',
+        'noto sans cjk',
+        'notosanscjk',
         # Windows - 微软雅黑
         'Microsoft YaHei',
         'microsoftyahei',
@@ -45,57 +91,48 @@ def _get_chinese_font(size: int) -> pygame.font.Font:
         'SimHei',
         'simhei',
         '黑体',
-        # Windows - 宋体
-        'SimSun',
-        'simsun',
-        '宋体',
-        # Linux - Droid
-        'Droid Sans Fallback',
-        'droid sans fallback',
-        'DroidSansFallback',
-        # Linux/macOS - Noto
-        'Noto Sans CJK SC',
-        'Noto Sans CJK',
-        'noto sans cjk',
-        'notosanscjk',
         # macOS - 苹方
         'PingFang SC',
         'PingFang',
         'pingfang',
-        # macOS - 黑体
-        'STHeiti',
-        'heiti',
+        # Linux - Droid
+        'Droid Sans Fallback',
+        'droid sans fallback',
     ]
     
-    # 首先尝试 SysFont
     for font_name in chinese_font_names:
         try:
             font = pygame.font.SysFont(font_name, size)
-            # 测试渲染中文字符
             test_surface = font.render('你好', True, (0, 0, 0))
-            # 检查渲染尺寸 - 有效的中文字体应该有合理的宽度
             w, h = test_surface.get_size()
-            if w > 15 and h > 5:  # "你好" 两个字应该有一定宽度
+            if w > 15 and h > 5:
+                _font_cache[cache_key] = font
+                print(f"字体加载成功: {font_name} (系统字体)")
                 return font
         except Exception:
             continue
     
-    # 如果 SysFont 失败，尝试直接加载字体文件
+    # 3. 尝试系统 Noto Sans CJK
+    noto_system = _FONT_PATHS.get('noto_cjk_system')
+    if noto_system and os.path.exists(noto_system):
+        try:
+            font = pygame.font.Font(noto_system, size)
+            test_surface = font.render('你好', True, (0, 0, 0))
+            w, h = test_surface.get_size()
+            if w > 15 and h > 5:
+                _font_cache[cache_key] = font
+                print(f"字体加载成功: Noto Sans CJK (系统: {noto_system})")
+                return font
+        except Exception as e:
+            print(f"系统 Noto Sans CJK 加载失败: {e}")
+    
+    # 4. 尝试其他系统字体路径
     font_paths = [
-        # Windows 字体
-        "C:/Windows/Fonts/msyh.ttc",      # 微软雅黑
-        "C:/Windows/Fonts/msyhbd.ttc",    # 微软雅黑粗体
-        "C:/Windows/Fonts/simhei.ttf",    # 黑体
-        "C:/Windows/Fonts/simsun.ttc",    # 宋体
-        "C:/Windows/Fonts/simkai.ttf",    # 楷体
-        # Linux 字体
-        "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
         "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-        "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
-        # macOS 字体
+        "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
+        "C:/Windows/Fonts/msyh.ttc",
+        "C:/Windows/Fonts/simhei.ttf",
         "/System/Library/Fonts/PingFang.ttc",
-        "/System/Library/Fonts/STHeiti Light.ttc",
-        "/Library/Fonts/Arial Unicode.ttf",
     ]
     
     for font_path in font_paths:
@@ -105,13 +142,55 @@ def _get_chinese_font(size: int) -> pygame.font.Font:
                 test_surface = font.render('你好', True, (0, 0, 0))
                 w, h = test_surface.get_size()
                 if w > 15 and h > 5:
+                    _font_cache[cache_key] = font
+                    print(f"字体加载成功: {font_path}")
                     return font
             except Exception:
                 continue
     
-    # 最后回退到默认字体（不支持中文，但至少不会崩溃）
+    # 4. 最后回退到默认字体
     print("警告: 未找到中文字体，文本可能显示为方块")
-    return pygame.font.Font(None, size)
+    font = pygame.font.Font(None, size)
+    _font_cache[cache_key] = font
+    return font
+
+
+def _get_english_font(size: int) -> pygame.font.Font:
+    """
+    获取英文字体（Press Start 2P）
+    
+    用于英文/数字显示，像素风格。
+    
+    Args:
+        size: 字体大小
+    
+    Returns:
+        pygame.font.Font: 字体对象
+    """
+    cache_key = f"english_{size}"
+    if cache_key in _font_cache:
+        return _font_cache[cache_key]
+    
+    font = None
+    
+    # 优先使用 Press Start 2P
+    press_path = _FONT_PATHS.get('press_start_2p')
+    if press_path and os.path.exists(press_path):
+        try:
+            font = pygame.font.Font(press_path, size)
+            test_surface = font.render('Hello', True, (0, 0, 0))
+            w, h = test_surface.get_size()
+            if w > 10 and h > 5:
+                _font_cache[cache_key] = font
+                print(f"英文字体加载成功: Press Start 2P ({press_path})")
+                return font
+        except Exception as e:
+            print(f"Press Start 2P 加载失败: {e}")
+    
+    # 回退到默认字体
+    font = pygame.font.Font(None, size)
+    _font_cache[cache_key] = font
+    return font
 
 
 class NPCState(Enum):
@@ -647,12 +726,12 @@ class NPC(Entity):
         bubble_width = int(bubble_width * 0.7)
         bubble_height = int(bubble_height * 0.7)
         
-        # 使用缩小的 9-slice 边框配置（边框宽度 16px）
+        # 使用缩小的 9-slice 边框配置（边框宽度 8px，更细）
         small_nine_slice = NineSliceConfig(
-            border_left=16,
-            border_right=16,
-            border_top=16,
-            border_bottom=16
+            border_left=8,
+            border_right=8,
+            border_top=8,
+            border_bottom=8
         )
         
         # 确保最小尺寸能容纳 9-slice 边框
@@ -703,17 +782,25 @@ class NPC(Entity):
         # === 绘制箭头（指向 NPC）===
         try:
             arrow_img = NineSliceRenderer.load_arrow(DIALOG_ARROW_PATH)
+            # 箭头也缩小 30%（与对话框缩放比例一致）
+            scale_factor = 0.7
+            arrow_w = int(arrow_img.get_width() * scale_factor)
+            arrow_h = int(arrow_img.get_height() * scale_factor)
+            arrow_scaled = pygame.transform.scale(arrow_img, (arrow_w, arrow_h))
             # 箭头位置：气泡底部中央下方
-            arrow_x = bubble_rect.centerx - arrow_img.get_width() // 2
+            arrow_x = bubble_rect.centerx - arrow_w // 2
             arrow_y = bubble_rect.bottom + style.arrow_offset
-            surface.blit(arrow_img, (arrow_x, arrow_y))
+            surface.blit(arrow_scaled, (arrow_x, arrow_y))
         except Exception as e:
-            # 回退到绘制三角形
+            # 回退到绘制三角形（缩小 30%）
             print(f"警告: 无法加载箭头图片: {e}")
+            # 原始尺寸缩小 30%
+            half_base = int(6 * 0.7)  # 底边一半
+            height = int(style.arrow_height * 0.7)
             triangle_points = [
-                (bubble_rect.centerx - 6, bubble_rect.bottom + style.arrow_offset),
-                (bubble_rect.centerx + 6, bubble_rect.bottom + style.arrow_offset),
-                (bubble_rect.centerx, bubble_rect.bottom + style.arrow_offset + style.arrow_height)
+                (bubble_rect.centerx - half_base, bubble_rect.bottom + style.arrow_offset),
+                (bubble_rect.centerx + half_base, bubble_rect.bottom + style.arrow_offset),
+                (bubble_rect.centerx, bubble_rect.bottom + style.arrow_offset + height)
             ]
             pygame.draw.polygon(surface, style.background_color, triangle_points)
         

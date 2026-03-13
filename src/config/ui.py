@@ -140,6 +140,20 @@ STYLE_DARK = DialogStyle(
 @dataclass
 class FontConfig:
     """字体配置"""
+    # 字体文件路径
+    # 中文字体 - Noto Sans CJK (支持中日韩文字)
+    chinese_font_path: str = "assets/fonts/NotoSansCJK-Bold.ttc"
+    
+    # 英文像素字体 - Press Start 2P (复古游戏风格)
+    english_font_path: str = "assets/fonts/PressStart2P-Regular.ttf"
+    
+    # 备用英文字体 - Kenney Future
+    fallback_font_path: str = "assets/fonts/KenneyFuture.ttf"
+    
+    # 系统字体名称（当字体文件不存在时的备用）
+    system_chinese: str = "Noto Sans CJK SC"
+    system_english: str = "Press Start 2P"
+    
     # 默认字号
     default_size: int = 16
     

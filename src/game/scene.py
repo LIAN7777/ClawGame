@@ -44,14 +44,14 @@ CABIN_COLORS: Dict[int, Tuple[int, int, int]] = {
 # Tile 类型到 Tileset ID 的映射
 # 选择的 tile 风格统一，视觉效果清晰
 TILE_TYPE_TO_TILESET: Dict[int, int] = {
-    TileType.FLOOR: TileID.FLOOR_WOOD_1,    # 木地板 (ID 417) - 温馨木纹
+    TileType.FLOOR: TileID.FLOOR_WOOD_H,    # 木地板 (ID 149) - 横向木纹
     TileType.WALL: TileID.WALL_BASIC,       # 墙壁 (ID 1) - 实心墙壁，清晰边界
-    TileType.WINDOW: TileID.WALL_DECOR_1,   # 窗户 (ID 2) - 带装饰的墙壁，区分普通墙
-    TileType.DOOR: TileID.DECOR_1,          # 门 (ID 5) - 明显的门造型
-    TileType.TABLE: TileID.TABLE_CHAIR_1,   # 桌子 (ID 273) - 桌椅组合
-    TileType.CHAIR: TileID.CHAIR_1,         # 椅子 (ID 228) - 单独椅子
-    TileType.BED: TileID.TABLE_CHAIR_3,     # 床 (ID 305) - 大型家具，类似床
-    TileType.RUG: TileID.DECOR_6,           # 地毯 (ID 154) - 地面装饰
+    TileType.WINDOW: TileID.WALL_WINDOW_1,  # 窗户 (ID 6) - 窗户变体 1
+    TileType.DOOR: TileID.WALL_DOOR,        # 门 (ID 8) - 门
+    TileType.TABLE: TileID.TABLE_SMALL_1,   # 桌子 (ID 246) - 小桌子
+    TileType.CHAIR: TileID.CHAIR_BASIC,     # 椅子 (ID 253) - 基础椅子
+    TileType.BED: TileID.BED_SINGLE_1,      # 床 (ID 344) - 单人床
+    TileType.RUG: TileID.RUG_1,             # 地毯 (ID 733) - 地毯装饰
 }
 
 
