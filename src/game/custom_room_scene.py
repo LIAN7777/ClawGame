@@ -4,6 +4,7 @@ ClawGame - 自定义室内场景模块
 """
 
 import os
+import random
 from typing import Dict, List, Optional, Tuple
 
 import pygame
@@ -97,9 +98,8 @@ class CustomRoomScene:
     
     def _load_assets(self):
         """加载所有素材"""
-        # 地板tile目标尺寸：木门高度约120px，tile应在60px以下
-        # 使用48x48像素，让地板更密集
-        self.target_tile_size = 48
+        # 地板tile目标尺寸：缩小到32px让地板更密集
+        self.target_tile_size = 32
         
         # 加载地板tiles并缩放
         raw_tile_h = self._load_image("木地板tile_横.png")
@@ -112,17 +112,17 @@ class CustomRoomScene:
         self.floor_tile_width = self.target_tile_size
         self.floor_tile_height = self.target_tile_size
         
-        # 加载家具（并缩放到合适尺寸）
-        # 门：缩放到约 80x120
-        self.door_img = self._load_and_scale("木门.png", 80, 120)
-        # 冰箱：缩放到约 60x100
-        self.fridge_img = self._load_and_scale("冰箱.png", 60, 100)
-        # 椅子：缩放到约 50x55
-        self.chair_img = self._load_and_scale("椅子.png", 50, 55)
-        # 桌子：缩放到约 90x60
-        self.table_img = self._load_and_scale("桌子.png", 90, 60)
-        # 电视机：缩放到约 100x80
-        self.tv_img = self._load_and_scale("电视机.png", 100, 80)
+        # 加载家具（并缩放到合适尺寸，尺寸x2）
+        # 门：缩放到约 160x240
+        self.door_img = self._load_and_scale("木门.png", 160, 240)
+        # 冰箱：缩放到约 120x200
+        self.fridge_img = self._load_and_scale("冰箱.png", 120, 200)
+        # 椅子：缩放到约 100x110
+        self.chair_img = self._load_and_scale("椅子.png", 100, 110)
+        # 桌子：缩放到约 180x120
+        self.table_img = self._load_and_scale("桌子.png", 180, 120)
+        # 电视机：缩放到约 200x160
+        self.tv_img = self._load_and_scale("电视机.png", 200, 160)
         
         print(f"[CustomRoomScene] 素材加载完成")
         print(f"  地板tile: {self.floor_tile_width}x{self.floor_tile_height}")
@@ -178,7 +178,7 @@ class CustomRoomScene:
         print(f"  总尺寸: {self.total_width}x{self.total_height}px")
     
     def _place_furniture(self):
-        """放置家具"""
+        """放置家具（随机位置，增加重复家具）"""
         # 墙壁偏移
         wx = self.wall_thickness
         wy = self.wall_thickness
@@ -189,65 +189,87 @@ class CustomRoomScene:
         inner_right = wx + self.room_width
         inner_bottom = wy + self.room_height
         
-        print(f"[CustomRoomScene] 房间内部区域: ({inner_left}, {inner_top}) 到 ({inner_right}, {inner_bottom})")
+        # 门的禁区（底部中央区域，家具不能放这里）
+        door_clear_zone = pygame.Rect(
+            self.door_x - 50,
+            self.total_height - self.door_img.get_height() - 100,
+            self.door_img.get_width() + 100,
+            self.door_img.get_height() + 150
+        )
         
-        # 1. 门（底部中央）
+        print(f"[CustomRoomScene] 房间内部区域: ({inner_left}, {inner_top}) 到 ({inner_right}, {inner_bottom})")
+        print(f"[CustomRoomScene] 门口禁区: {door_clear_zone}")
+        
+        # 已放置的家具位置列表（用于碰撞检测）
+        placed_rects: List[pygame.Rect] = []
+        
+        def can_place(rect: pygame.Rect) -> bool:
+            """检查是否可以放置（不与其他家具或门冲突）"""
+            # 检查是否与门冲突
+            if rect.colliderect(door_clear_zone):
+                return False
+            # 检查是否与其他家具冲突
+            for existing in placed_rects:
+                # 增加间距（家具之间保留30px通行空间）
+                expanded = existing.inflate(30, 30)
+                if rect.colliderect(expanded):
+                    return False
+            return True
+        
+        def find_random_position(width: int, height: int, max_attempts: int = 50) -> Optional[Tuple[int, int]]:
+            """找到随机可用位置"""
+            for _ in range(max_attempts):
+                # 在房间内部随机位置
+                x = random.randint(inner_left + 20, inner_right - width - 20)
+                y = random.randint(inner_top + 20, inner_bottom - height - 20)
+                rect = pygame.Rect(x, y, width, height)
+                if can_place(rect):
+                    return (x, y)
+            return None
+        
+        # 1. 门（底部中央，固定位置）
         door = FurnitureItem(
             "木门",
             self.door_img,
             self.door_x,
-            self.total_height - self.door_img.get_height(),  # 门底部对齐底部墙
-            collidable=False  # 门可以通行
+            self.total_height - self.door_img.get_height(),
+            collidable=False
         )
         self.furniture.append(door)
+        placed_rects.append(door.get_rect())
         
-        # 2. 冰箱（左下角）- 靠左墙，底部
-        fridge_x = inner_left + 30
-        fridge_y = inner_bottom - self.fridge_img.get_height() - 30
-        fridge = FurnitureItem(
-            "冰箱",
-            self.fridge_img,
-            fridge_x,
-            fridge_y,
-            collidable=True
-        )
+        # 2. 冰箱（靠左墙或左下角）
+        fridge_positions = [
+            (inner_left + 30, inner_bottom - self.fridge_img.get_height() - 30),  # 左下角
+            (inner_left + 30, inner_top + 50),  # 左上角
+        ]
+        fridge_x, fridge_y = random.choice(fridge_positions)
+        fridge = FurnitureItem("冰箱", self.fridge_img, fridge_x, fridge_y, collidable=True)
         self.furniture.append(fridge)
+        placed_rects.append(fridge.get_rect())
         
-        # 3. 电视机（右上角）- 靠右墙，顶部
+        # 3. 电视机（靠右墙）
         tv_x = inner_right - self.tv_img.get_width() - 30
-        tv_y = inner_top + 30
-        tv = FurnitureItem(
-            "电视机",
-            self.tv_img,
-            tv_x,
-            tv_y,
-            collidable=True
-        )
+        tv_y = random.randint(inner_top + 30, inner_top + 150)
+        tv = FurnitureItem("电视机", self.tv_img, tv_x, tv_y, collidable=True)
         self.furniture.append(tv)
+        placed_rects.append(tv.get_rect())
         
-        # 4. 桌子（右下角）- 靠右墙，底部
-        table_x = inner_right - self.table_img.get_width() - 60
-        table_y = inner_bottom - self.table_img.get_height() - 60
-        table = FurnitureItem(
-            "桌子",
-            self.table_img,
-            table_x,
-            table_y,
-            collidable=True
-        )
-        self.furniture.append(table)
+        # 4. 多张桌子（2张）
+        for i in range(2):
+            pos = find_random_position(self.table_img.get_width(), self.table_img.get_height())
+            if pos:
+                table = FurnitureItem(f"桌子{i+1}", self.table_img, pos[0], pos[1], collidable=True)
+                self.furniture.append(table)
+                placed_rects.append(table.get_rect())
         
-        # 5. 椅子（桌子旁边）- 在桌子左侧
-        chair_x = table_x - self.chair_img.get_width() - 10
-        chair_y = table_y + (self.table_img.get_height() - self.chair_img.get_height()) // 2
-        chair = FurnitureItem(
-            "椅子",
-            self.chair_img,
-            chair_x,
-            chair_y,
-            collidable=True
-        )
-        self.furniture.append(chair)
+        # 5. 多把椅子（3把）
+        for i in range(3):
+            pos = find_random_position(self.chair_img.get_width(), self.chair_img.get_height())
+            if pos:
+                chair = FurnitureItem(f"椅子{i+1}", self.chair_img, pos[0], pos[1], collidable=True)
+                self.furniture.append(chair)
+                placed_rects.append(chair.get_rect())
         
         print(f"[CustomRoomScene] 放置家具: {len(self.furniture)} 件")
         for f in self.furniture:
