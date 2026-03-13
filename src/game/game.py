@@ -52,8 +52,8 @@ class Game:
         # 初始化字体
         self.font = pygame.font.Font(None, 36)
         
-        # 帧率追踪
-        self._clock = pygame.time.Clock()
+        # 帧率追踪（使用外部传入的 delta time）
+        self._last_dt: float = 0.0
         
         # 初始化场景
         self.scene = Scene()
@@ -96,17 +96,24 @@ class Game:
                 # 尝试交互
                 self.interaction_system.handle_key(event.key)
     
-    def update(self) -> None:
-        """更新游戏状态"""
+    def update(self, dt: float = 0.0) -> None:
+        """
+        更新游戏状态
+        
+        Args:
+            dt: 时间增量（秒），默认为0
+        """
         if self.paused:
             return
+        
+        # 保存 delta time
+        self._last_dt = dt
         
         # 处理玩家输入
         keys = pygame.key.get_pressed()
         self.player.handle_input(keys)
         
         # 更新场景（包括玩家和 NPC）
-        dt = self._clock.get_time() / 1000.0  # 转换为秒
         self.scene.update(dt)
         
         # 更新交互系统
@@ -165,10 +172,12 @@ class Game:
     
     def _render_debug_info(self, surface: pygame.Surface) -> None:
         """渲染调试信息"""
-        fps_text = self.font.render(f"FPS: {int(self._clock.get_fps())}", True, self.colors["black"])
+        # 计算 FPS（基于 delta time）
+        fps = int(1.0 / self._last_dt) if self._last_dt > 0 else 0
+        fps_text = self.font.render(f"FPS: {fps}", True, self.colors["white"])
         surface.blit(fps_text, (10, 10))
         
         # 显示玩家信息
         player_info = f"Player: ({self.player.x:.0f}, {self.player.y:.0f}) {self.player.get_direction_text()} {self.player.get_speed_text()}"
-        player_text = self.font.render(player_info, True, self.colors["black"])
+        player_text = self.font.render(player_info, True, self.colors["white"])
         surface.blit(player_text, (10, 40))

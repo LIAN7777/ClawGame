@@ -57,13 +57,14 @@ class Player(Entity):
     # 精灵尺寸
     SPRITE_SIZE: int = 24        # 24x24 像素（小于 tile 便于移动）
     
-    # 颜色配置（Hello Kitty 风格）
-    BODY_COLOR = (255, 182, 193)       # 粉色身体
-    EAR_COLOR = (255, 150, 170)        # 深粉色耳朵
-    EYE_COLOR = (40, 40, 40)           # 深灰色眼睛
-    EYE_HIGHLIGHT = (255, 255, 255)    # 眼睛高光
-    CHEEK_COLOR = (255, 130, 150)      # 腮红
-    SHADOW_COLOR = (50, 50, 50, 80)    # 影子颜色（半透明深灰）
+    # 颜色配置（主角独特配色 - 鲜艳的珊瑚粉色）
+    BODY_COLOR = (255, 127, 127)        # 珊瑚粉身体（比NPC更鲜艳）
+    EAR_COLOR = (255, 99, 71)           # 番茄红耳朵
+    EYE_COLOR = (40, 40, 40)            # 深灰色眼睛
+    EYE_HIGHLIGHT = (255, 255, 255)     # 眼睛高光
+    CHEEK_COLOR = (255, 100, 120)       # 腮红
+    SHADOW_COLOR = (50, 50, 50, 80)     # 影子颜色（半透明深灰）
+    CROWN_COLOR = (255, 215, 0)         # 金色皇冠
     
     def __init__(self, x: float, y: float):
         """
@@ -467,6 +468,48 @@ class Player(Entity):
             self.CHEEK_COLOR,
             (center_x + body_width // 3, cheek_y),
             2
+        )
+        
+        # === 绘制主角标识：小皇冠 ===
+        # 皇冠位置（头顶）
+        crown_y = center_y - body_height // 2 - ear_height - 4
+        crown_width = 10
+        crown_height = 5
+        
+        # 皇冠底座
+        pygame.draw.rect(
+            surface,
+            self.CROWN_COLOR,
+            pygame.Rect(center_x - crown_width // 2, crown_y + crown_height - 2, crown_width, 2)
+        )
+        
+        # 皇冠尖角
+        pygame.draw.polygon(
+            surface,
+            self.CROWN_COLOR,
+            [
+                (center_x - crown_width // 2, crown_y + crown_height - 2),
+                (center_x - crown_width // 2 + 2, crown_y),
+                (center_x - crown_width // 2 + 4, crown_y + crown_height - 2),
+            ]
+        )
+        pygame.draw.polygon(
+            surface,
+            self.CROWN_COLOR,
+            [
+                (center_x - 2, crown_y + crown_height - 2),
+                (center_x, crown_y - 2),
+                (center_x + 2, crown_y + crown_height - 2),
+            ]
+        )
+        pygame.draw.polygon(
+            surface,
+            self.CROWN_COLOR,
+            [
+                (center_x + crown_width // 2 - 4, crown_y + crown_height - 2),
+                (center_x + crown_width // 2 - 2, crown_y),
+                (center_x + crown_width // 2, crown_y + crown_height - 2),
+            ]
         )
     
     def _draw_shadow(

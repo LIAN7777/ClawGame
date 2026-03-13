@@ -54,8 +54,11 @@ def main():
                 running = False
             game.handle_event(event)
         
+        # 计算 delta time
+        dt = clock.get_time() / 1000.0  # 转换为秒
+        
         # 更新游戏状态
-        game.update()
+        game.update(dt)
         
         # 渲染到内部表面
         game.render(internal_surface)

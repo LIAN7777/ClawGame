@@ -194,7 +194,7 @@ class Scene:
     
     def get_spawn_position(self) -> Tuple[float, float]:
         """
-        获取玩家出生位置（门的位置）
+        获取玩家出生位置（门的前方中央区域）
         
         Returns:
             (x, y) 像素坐标
@@ -203,10 +203,10 @@ class Scene:
         for y, row in enumerate(CABIN_INDOOR_MAP):
             for x, tile_type in enumerate(row):
                 if tile_type == TileType.DOOR:
-                    # 返回门前方一格的中心位置
+                    # 返回门前方两格的中心位置（避免与墙壁碰撞）
                     return (
                         (x * self.tile_size) + (self.tile_size // 2),
-                        ((y - 1) * self.tile_size) + (self.tile_size // 2)
+                        ((y - 2) * self.tile_size) + (self.tile_size // 2)
                     )
         
         # 默认返回地图中心
