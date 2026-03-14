@@ -204,7 +204,7 @@ class InteractionSystem:
         """
         渲染交互提示
         
-        在玩家右上角显示一个小 E 按钮。
+        在玩家上方显示按钮提示（E 和空格）。
 
         Args:
             surface: 目标渲染表面
@@ -225,23 +225,40 @@ class InteractionSystem:
             player_screen_x = int(player.x)
             player_screen_y = int(player.y)
         
-        # E 按钮位置（玩家右上角）
-        # 玩家精灵尺寸为 24x24，按钮放在右上角
+        # 按钮位置（玩家上方居中）
         button_radius = 10  # 圆形半径
-        button_x = player_screen_x + player.width + button_radius - 4  # 右上角偏移
-        button_y = player_screen_y - button_radius + 4  # 顶部偏移
+        button_spacing = 24  # 按钮间距
+        center_x = player_screen_x + player.width // 2
+        base_y = player_screen_y - button_radius - 8  # 玩家上方
         
-        # 绘制 E 按钮
-        # 圆形背景（白色）
-        pygame.draw.circle(surface, (255, 255, 255), (button_x, button_y), button_radius)
-        # 圆形边框（深灰色）
-        pygame.draw.circle(surface, (100, 100, 100), (button_x, button_y), button_radius, width=2)
+        # 检查是否是有 LLM 的 NPC（如小橘）
+        has_llm = getattr(self.nearby_npc, 'use_llm', False)
         
-        # E 字母
-        font = pygame.font.Font(None, 16)
-        text_surface = font.render("E", True, (50, 50, 50))
-        text_rect = text_surface.get_rect(center=(button_x, button_y))
-        surface.blit(text_surface, text_rect)
+        if has_llm:
+            # 显示两个按钮：E 和 空格
+            # E 按钮（左侧）
+            e_x = center_x - button_spacing // 2
+            pygame.draw.circle(surface, (255, 255, 255), (e_x, base_y), button_radius)
+            pygame.draw.circle(surface, (100, 100, 100), (e_x, base_y), button_radius, width=2)
+            font = pygame.font.Font(None, 16)
+            text_surface = font.render("E", True, (50, 50, 50))
+            text_rect = text_surface.get_rect(center=(e_x, base_y))
+            surface.blit(text_surface, text_rect)
+            
+            # 空格按钮（右侧）
+            space_x = center_x + button_spacing // 2
+            pygame.draw.circle(surface, (255, 255, 255), (space_x, base_y), button_radius)
+            pygame.draw.circle(surface, (100, 100, 100), (space_x, base_y), button_radius, width=2)
+            # 空格用横线表示
+            pygame.draw.line(surface, (50, 50, 50), (space_x - 5, base_y), (space_x + 5, base_y), width=2)
+        else:
+            # 普通 NPC 只显示 E 按钮
+            pygame.draw.circle(surface, (255, 255, 255), (center_x, base_y), button_radius)
+            pygame.draw.circle(surface, (100, 100, 100), (center_x, base_y), button_radius, width=2)
+            font = pygame.font.Font(None, 16)
+            text_surface = font.render("E", True, (50, 50, 50))
+            text_rect = text_surface.get_rect(center=(center_x, base_y))
+            surface.blit(text_surface, text_rect)
     
     def _calculate_distance(
         self, 

@@ -152,10 +152,12 @@ class Game:
                 if not self.input_mode:
                     self.interaction_system.handle_key(event.key)
             elif event.key == pygame.K_SPACE:
-                # 空格键：打开输入框进行自由对话
-                if not self.input_mode and self.interaction_system.nearby_npc is not None:
-                    self.input_mode = True
-                    self.text_input.show()
+                # 空格键：打开输入框进行自由对话（仅限有 LLM 的 NPC）
+                if not self.input_mode:
+                    npc = self.interaction_system.nearby_npc
+                    if npc is not None and getattr(npc, 'use_llm', False):
+                        self.input_mode = True
+                        self.text_input.show()
     
     def update(self, dt: float = 0.0) -> None:
         """
@@ -170,10 +172,13 @@ class Game:
         # 保存 delta time
         self._last_dt = dt
         
-        # 更新输入框
+        # 更新输入框（光标闪烁等）
         if self.input_mode:
             self.text_input.update(dt)
-            # 输入模式下暂停玩家移动
+            # 输入模式下不处理玩家移动，但继续更新场景
+            self.scene.update(dt)
+            self.camera.follow(self.player.rect, smooth=True)
+            self.camera.update()
             return
         
         # 处理玩家输入
@@ -210,11 +215,8 @@ class Game:
         # 渲染场景（使用相机）
         self.scene.render(target, self.camera)
         
-        # 渲染交互提示（传入玩家对象用于显示 E 按钮）
+        # 渲染交互提示（传入玩家对象用于显示 E 和空格按钮）
         self.interaction_system.render_prompt(target, self.camera, self.player)
-        
-        # 渲染左上角提示
-        self._render_hints(target)
         
         # 渲染文本输入框
         if self.input_mode:
@@ -223,32 +225,6 @@ class Game:
         # 渲染暂停提示
         if self.paused:
             self._render_pause_overlay(target, width, height)
-    
-    def _render_hints(self, surface: pygame.Surface) -> None:
-        """渲染左上角操作提示"""
-        # 提示文本
-        hints = []
-        if self.interaction_system.nearby_npc is not None:
-            hints.append("E: 打招呼")
-            hints.append("空格: 对话")
-        else:
-            hints.append("E/空格: 与NPC交互")
-        
-        # 使用小字体
-        try:
-            font = pygame.font.SysFont('Microsoft YaHei', 12)
-            test = font.render('测试', True, (255, 255, 255))
-            if test.get_width() < 10:
-                raise Exception("字体不支持中文")
-        except:
-            font = pygame.font.Font(None, 16)
-        
-        # 渲染提示（左上角）
-        y_offset = 10
-        for hint in hints:
-            text_surface = font.render(hint, True, (200, 200, 200))
-            surface.blit(text_surface, (10, y_offset))
-            y_offset += 18
     
     def _render_pause_overlay(
         self, 

@@ -147,13 +147,20 @@ class TextInput:
                 return True
             elif event.key == pygame.K_BACKSPACE:
                 # 退格删除
-                self.text = self.text[:-1]
+                if self.text:
+                    self.text = self.text[:-1]
                 return True
         
         elif event.type == pygame.TEXTINPUT:
-            # 文本输入
+            # 文本输入（包括中文输入法的最终输入）
             if len(self.text) < self.max_length:
                 self.text += event.text
+            return True
+        
+        elif event.type == pygame.TEXTEDITING:
+            # 输入法组合中（正在输入拼音等）
+            # 这个事件表示输入法正在工作，不需要特别处理
+            # 但需要返回 True 表示我们在处理输入法事件
             return True
         
         return False
