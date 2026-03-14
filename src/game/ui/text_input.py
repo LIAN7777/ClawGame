@@ -87,6 +87,10 @@ class TextInput:
         self.active: bool = False
         self.visible: bool = False
         
+        # 输入法组合状态
+        self.composition: str = ""  # 输入法正在组合的文本（拼音等）
+        self.composition_pos: int = 0  # 组合光标位置
+        
         # 光标状态
         self.cursor_visible: bool = True
         self.cursor_timer: float = 0.0
@@ -118,6 +122,8 @@ class TextInput:
         self.cursor_timer = 0.0
         # 启用文本输入模式（支持输入法）
         pygame.key.start_text_input()
+        # 启用按键重复（支持长按删除）
+        pygame.key.set_repeat(300, 50)  # 300ms 开始重复，每 50ms 重复一次
     
     def hide(self) -> None:
         """隐藏输入框"""
@@ -126,6 +132,8 @@ class TextInput:
         self.text = ""
         # 停止文本输入模式
         pygame.key.stop_text_input()
+        # 禁用按键重复
+        pygame.key.set_repeat(0, 0)
     
     def handle_event(self, event: pygame.event.Event) -> bool:
         """
@@ -159,12 +167,15 @@ class TextInput:
             # 文本输入（包括中文输入法的最终输入）
             if len(self.text) < self.max_length:
                 self.text += event.text
+            # 清除组合文本
+            self.composition = ""
+            self.composition_pos = 0
             return True
         
         elif event.type == pygame.TEXTEDITING:
             # 输入法组合中（正在输入拼音等）
-            # 这个事件表示输入法正在工作，不需要特别处理
-            # 但需要返回 True 表示我们在处理输入法事件
+            self.composition = event.text
+            self.composition_pos = event.start
             return True
         
         return False
@@ -214,14 +225,15 @@ class TextInput:
         text_x = x + 15
         text_y = y + (self.height - self.font.get_linesize()) // 2
         
-        if self.text:
-            # 显示输入的文本
-            text_surface = self.font.render(self.text, True, self.colors["text"])
+        if self.text or self.composition:
+            # 显示输入的文本 + 组合文本
+            display_text = self.text + self.composition
+            text_surface = self.font.render(display_text, True, self.colors["text"])
             surface.blit(text_surface, (text_x, text_y))
             
             # 绘制光标
             if self.active and self.cursor_visible:
-                cursor_x = text_x + self.font.size(self.text)[0] + 2
+                cursor_x = text_x + self.font.size(display_text)[0] + 2
                 pygame.draw.line(
                     surface,
                     self.colors["cursor"],

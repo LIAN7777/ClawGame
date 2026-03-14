@@ -104,6 +104,9 @@ class Game:
         # 输入模式状态
         self.input_mode: bool = False
         
+        # 默认禁用文本输入模式（避免输入法干扰游戏操作）
+        pygame.key.stop_text_input()
+        
     def _on_text_submit(self, text: str) -> None:
         """
         文本输入提交回调
@@ -136,17 +139,14 @@ class Game:
             if handled:
                 return
         
-        # 处理 TEXTINPUT 事件（用于输入法文本输入）
-        # 这个事件在非输入模式下也可能发生（如输入法组合中）
+        # 处理输入法事件（只在输入模式下）
         if event.type == pygame.TEXTINPUT:
-            if self.input_mode:
-                # 已经由 text_input.handle_event 处理了
-                pass
+            # 已经由 text_input.handle_event 处理了
             return
         
-        # 处理 TEXTEDITING 事件（输入法组合中）
         if event.type == pygame.TEXTEDITING:
-            # 输入法正在工作，忽略其他按键
+            # 输入法组合中，只在输入模式下有意义
+            # 非输入模式下忽略此事件，让 KEYDOWN 正常处理
             return
         
         if event.type == pygame.KEYDOWN:
