@@ -852,7 +852,7 @@ class NPC(Entity):
     
     def _interact_with_llm_async(self, player_input: str) -> str:
         """
-        使用 LLM 异步生成交互对话（不阻塞主线程）
+        使用 LLM 异步生成交互对话和行为（不阻塞主线程）
         
         Args:
             player_input: 玩家输入的对话内容
@@ -860,7 +860,7 @@ class NPC(Entity):
         Returns:
             对话文本
         """
-        from ai.npc_persona import NPCPersona
+        from ai.npc_persona import NPCPersona, NPCAction
         
         # 显示"思考中..."
         self.is_thinking = True
@@ -872,8 +872,8 @@ class NPC(Entity):
         # 在后台线程中调用 LLM
         def llm_worker():
             try:
-                # 获取系统提示词
-                system_prompt = NPCPersona.get_system_prompt(self.persona_name)
+                # 获取系统提示词（包含行为能力说明）
+                system_prompt = NPCPersona.get_system_prompt(self.persona_name, with_actions=True)
                 
                 # 获取对话历史
                 messages = self._memory.get_messages() if self._memory else []
@@ -884,14 +884,18 @@ class NPC(Entity):
                 # 调用 LLM
                 response = self._llm_client.chat(messages, system_prompt)
                 
+                # 解析响应（提取行为和回复）
+                parsed = NPCAction.parse_response(response)
+                
                 # 将结果放入队列
-                self._response_queue.put(("success", response, player_input))
+                self._response_queue.put(("success", parsed, player_input))
                 
             except Exception as e:
                 print(f"[NPC] LLM 调用失败: {e}")
                 # 使用回退回复
                 fallback = NPCPersona.get_fallback_response(self.persona_name)
-                self._response_queue.put(("error", fallback, player_input))
+                fallback_parsed = {"response": fallback, "actions": []}
+                self._response_queue.put(("error", fallback_parsed, player_input))
         
         # 启动后台线程
         self._llm_thread = threading.Thread(target=llm_worker, daemon=True)
@@ -903,6 +907,8 @@ class NPC(Entity):
         """
         检查 LLM 响应是否完成（每帧调用）
         
+        会解析 LLM 返回的行为并执行。
+        
         Returns:
             是否收到了新响应
         """
@@ -911,7 +917,10 @@ class NPC(Entity):
         
         try:
             # 非阻塞检查队列
-            status, response, player_input = self._response_queue.get_nowait()
+            status, parsed, player_input = self._response_queue.get_nowait()
+            
+            response = parsed.get("response", "")
+            actions = parsed.get("actions", [])
             
             # 保存对话
             if self._memory and status == "success":
@@ -922,11 +931,49 @@ class NPC(Entity):
             self.is_thinking = False
             self.show_dialog(response)
             
+            # 执行行为
+            if actions:
+                self._execute_llm_actions(actions)
+            
             return True
             
         except queue.Empty:
             # 队列为空，还在等待
             return False
+    
+    def _execute_llm_actions(self, actions: list) -> None:
+        """
+        执行 LLM 返回的行为列表
+        
+        Args:
+            actions: 行为列表，每个行为是一个字典
+        """
+        for action in actions:
+            action_type = action.get("type")
+            
+            if action_type == "move":
+                # 移动行为
+                direction = action.get("direction")
+                until = action.get("until")
+                
+                if direction:
+                    command = {
+                        "type": "move",
+                        "direction": direction,
+                        "until": until
+                    }
+                    # 使用现有的指令执行系统
+                    self.execute_command(command)
+            
+            elif action_type == "stop":
+                # 停止行为
+                self.stop_command()
+            
+            elif action_type == "follow":
+                # 跟随行为（Phase 2）
+                self.show_bubble = True
+                self.bubble_text = "好的，跟着你！（还没实现喵~）"
+                self.bubble_timer = 2.0
 
     def update(self, dt: float) -> None:
         """
