@@ -246,6 +246,9 @@ until为null或collision
 - 不论是否有指令意图，都返回JSON，response都不能为空
 - 有指令意图 → actions中包含完整的信息
 - 完全无指令意图 → actions放空
+
+【！！！注意！！！】
+除了json格式块的返回，不要返回任何其他内容，回复包含在response字段中，不要额外的内容回复！
 """
         
         return prompt
