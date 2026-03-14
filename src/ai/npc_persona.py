@@ -81,14 +81,14 @@ class NPCAction:
         """
         解析 LLM 响应，提取行为和回复
         
-        LLM 应该返回 JSON 格式：
+        LLM 统一返回 JSON 格式：
         {
-          "response": "对话回复",
+          "response": "对话回复（不能为空）",
           "actions": [{"type": "move", "direction": "right", "until": null}]
         }
         
-        或者纯文本（无行为）：
-        "喵~ 你好呀~"
+        - 有指令意图 → actions 包含完整行为信息
+        - 无指令意图 → actions 为空数组 []
         
         Args:
             llm_response: LLM 返回的原始响应
