@@ -881,11 +881,46 @@ class NPC(Entity):
                 # 添加当前玩家输入
                 messages.append({"role": "user", "content": player_input})
                 
+                # ===== 调试信息 1: 打印原始 prompt =====
+                print("\n" + "=" * 60)
+                print(f"[小橘对话] 发送给 LLM 的 prompt:")
+                print("-" * 60)
+                print(f"[系统提示词]\n{system_prompt}")
+                print("-" * 60)
+                print(f"[对话历史] ({len(messages) - 1} 条)")
+                for msg in messages[:-1]:
+                    role = msg.get("role", "?")
+                    content = msg.get("content", "")[:50]
+                    print(f"  {role}: {content}...")
+                print(f"[当前输入]\n  user: {player_input}")
+                print("=" * 60 + "\n")
+                
                 # 调用 LLM
                 response = self._llm_client.chat(messages, system_prompt)
                 
+                # ===== 调试信息 2: 打印 LLM 完整回复 =====
+                print("\n" + "=" * 60)
+                print(f"[小橘对话] LLM 完整回复:")
+                print("-" * 60)
+                print(response)
+                print("=" * 60 + "\n")
+                
                 # 解析响应（提取行为和回复）
                 parsed = NPCAction.parse_response(response)
+                
+                # ===== 调试信息 3: 打印解析结果 =====
+                print("\n" + "=" * 60)
+                print(f"[小橘对话] 解析结果:")
+                print("-" * 60)
+                print(f"回复: {parsed.get('response', '')}")
+                actions = parsed.get('actions', [])
+                if actions:
+                    print(f"行为 ({len(actions)} 个):")
+                    for i, action in enumerate(actions):
+                        print(f"  {i+1}. {action}")
+                else:
+                    print("行为: 无")
+                print("=" * 60 + "\n")
                 
                 # 将结果放入队列
                 self._response_queue.put(("success", parsed, player_input))
