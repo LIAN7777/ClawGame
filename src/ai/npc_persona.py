@@ -234,6 +234,14 @@ class NPCPersona:
 direction可以为right、left、up、down
 until为null或collision
 
+【输出示例】
+```json
+{
+  "response": "喵~ 小橘这就跟你向上走~",
+  "actions": [{"type": "move", "direction": "up", "until": null}]
+}
+```
+
 【判断标准】
 - 不论是否有指令意图，都返回JSON，response都不能为空
 - 有指令意图 → actions中包含完整的信息
