@@ -136,6 +136,19 @@ class Game:
             if handled:
                 return
         
+        # 处理 TEXTINPUT 事件（用于输入法文本输入）
+        # 这个事件在非输入模式下也可能发生（如输入法组合中）
+        if event.type == pygame.TEXTINPUT:
+            if self.input_mode:
+                # 已经由 text_input.handle_event 处理了
+                pass
+            return
+        
+        # 处理 TEXTEDITING 事件（输入法组合中）
+        if event.type == pygame.TEXTEDITING:
+            # 输入法正在工作，忽略其他按键
+            return
+        
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
                 if self.input_mode:

@@ -581,17 +581,38 @@ class CustomRoomScene:
     
     def _init_test_npcs(self):
         """初始化测试NPC"""
-        # 在房间内放置几个NPC
-        # 第一个是 LLM NPC（小橘）
-        xiaoju = NPC(300, 300, 'yellow', '小橘', use_llm=True, persona_name='小橘')
+        # 墙壁偏移
+        wx = self.wall_thickness
+        wy = self.wall_thickness
+        
+        # 安全的 NPC 出生位置（避开家具和玩家出生点）
+        # 小橘（LLM NPC）：放在右下角区域，避开家具
+        # 右下角：靠近电视下方，但留出通道
+        xiaoju = NPC(
+            self.total_width - self.wall_thickness - 150,  # 右侧距离墙壁150px
+            self.total_height - self.wall_thickness - 120,  # 底部距离墙壁120px
+            'yellow', '小橘', use_llm=True, persona_name='小橘'
+        )
         self.add_npc(xiaoju)
         
-        # 其他是传统 NPC
-        npc_configs = [
-            (200, 200, 'green', '小绿'),
-            (500, 300, 'blue', '小蓝'),
-        ]
+        # 其他 NPC 放在安全位置
+        # 小绿：左下角区域
+        npc1 = NPC(
+            self.wall_thickness + 120,  # 左侧距离墙壁120px
+            self.total_height - self.wall_thickness - 100,  # 底部距离墙壁100px
+            'green', '小绿'
+        )
+        self.add_npc(npc1)
         
-        for x, y, color, name in npc_configs:
-            npc = NPC(x, y, color, name)
-            self.add_npc(npc)
+        # 小蓝：房间中央偏右，避开桌子
+        npc2 = NPC(
+            self.total_width - self.wall_thickness - 100,  # 右侧距离墙壁100px
+            (wy + self.total_height - self.wall_thickness) // 2,  # 垂直居中
+            'blue', '小蓝'
+        )
+        self.add_npc(npc2)
+        
+        print(f"[CustomRoomScene] NPC 出生位置:")
+        print(f"  小橘: ({xiaoju.x:.0f}, {xiaoju.y:.0f})")
+        print(f"  小绿: ({npc1.x:.0f}, {npc1.y:.0f})")
+        print(f"  小蓝: ({npc2.x:.0f}, {npc2.y:.0f})")

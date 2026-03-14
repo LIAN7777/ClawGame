@@ -116,12 +116,16 @@ class TextInput:
         self.text = ""
         self.cursor_visible = True
         self.cursor_timer = 0.0
+        # 启用文本输入模式（支持输入法）
+        pygame.key.start_text_input()
     
     def hide(self) -> None:
         """隐藏输入框"""
         self.visible = False
         self.active = False
         self.text = ""
+        # 停止文本输入模式
+        pygame.key.stop_text_input()
     
     def handle_event(self, event: pygame.event.Event) -> bool:
         """
