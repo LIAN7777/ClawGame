@@ -111,52 +111,17 @@ class Game:
         """
         文本输入提交回调
         
+        所有输入都走 LLM 流程，由 LLM 判断意图（对话/指令）
+        
         Args:
             text: 玩家输入的文本
         """
         self.input_mode = False
         
-        # 尝试解析指令
-        from ai.command_parser import parse_command
-        command = parse_command(text)
-        
-        if command:
-            # 是指令，执行 NPC 行为
-            self._execute_command(command)
-            return
-        
-        # 不是指令，走原有对话流程
+        # 所有输入都发给 NPC（通过 LLM 判断意图）
         npc = self.interaction_system.nearby_npc
         if npc and npc.use_llm:
-            # 发送给 NPC
             npc.interact(text)
-    
-    def _execute_command(self, command) -> None:
-        """
-        执行指令
-        
-        Args:
-            command: 解析后的指令对象
-        """
-        target_name = command.target
-        
-        # 查找目标 NPC
-        target_npc = None
-        for npc in self.scene.npcs:
-            if npc.name == target_name or npc.persona_name == target_name:
-                target_npc = npc
-                break
-        
-        if target_npc is None:
-            print(f"[Game] 未找到目标 NPC: {target_name}")
-            return
-        
-        # 执行指令
-        success = target_npc.execute_command(command.to_dict())
-        if success:
-            print(f"[Game] 指令执行成功: {command.raw_text}")
-        else:
-            print(f"[Game] 指令执行失败: {command.raw_text}")
     
     def _on_text_cancel(self) -> None:
         """文本输入取消回调"""
