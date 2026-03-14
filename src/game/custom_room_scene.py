@@ -15,7 +15,7 @@ from config.tiles import get_scaled_size
 
 
 class FurnitureItem:
-    """家具物品"""
+    """家具物品（支持像素级碰撞检测）"""
     def __init__(self, name: str, image: pygame.Surface, x: int, y: int, collidable: bool = True):
         self.name = name
         self.image = image
@@ -25,12 +25,104 @@ class FurnitureItem:
         self.height = image.get_height()
         self.collidable = collidable
         
-        # 碰撞矩形（相对于位置）
+        # 碰撞矩形（用于粗略检测）
         self.rect = pygame.Rect(x, y, self.width, self.height)
+        
+        # 像素级碰撞遮罩（基于 alpha 通道）
+        self.mask = None
+        if collidable:
+            try:
+                self.mask = pygame.mask.from_surface(image)
+            except Exception as e:
+                print(f"[FurnitureItem] 创建 mask 失败: {e}")
     
     def get_rect(self) -> pygame.Rect:
         """获取碰撞矩形"""
         return self.rect.copy()
+    
+    def collides_with_point(self, world_x: int, world_y: int) -> bool:
+        """
+        检测世界坐标点是否与家具碰撞
+        
+        Args:
+            world_x: 世界 X 坐标
+            world_y: 世界 Y 坐标
+            
+        Returns:
+            是否碰撞
+        """
+        if not self.collidable:
+            return False
+        
+        # 转换为相对于家具图片的局部坐标
+        local_x = world_x - self.x
+        local_y = world_y - self.y
+        
+        # 检查是否在图片范围内
+        if local_x < 0 or local_x >= self.width or local_y < 0 or local_y >= self.height:
+            return False
+        
+        # 如果没有 mask，使用矩形碰撞
+        if self.mask is None:
+            return True
+        
+        # 使用 mask 检测像素级碰撞
+        try:
+            # mask.get_at() 返回该点的值，0 表示透明，非0 表示不透明
+            return self.mask.get_at((local_x, local_y)) != 0
+        except IndexError:
+            return False
+    
+    def collides_with_rect(self, rect: pygame.Rect, check_corners: bool = True) -> bool:
+        """
+        检测矩形是否与家具碰撞
+        
+        Args:
+            rect: 世界坐标矩形
+            check_corners: 是否只检测角点（更快但不够精确）
+            
+        Returns:
+            是否碰撞
+        """
+        if not self.collidable:
+            return False
+        
+        # 先用矩形做粗略检测
+        if not self.rect.colliderect(rect):
+            return False
+        
+        # 如果没有 mask，使用矩形碰撞
+        if self.mask is None:
+            return True
+        
+        # 检测点列表
+        if check_corners:
+            # 只检测矩形的角点和中心点（更快）
+            points = [
+                rect.topleft,
+                rect.topright,
+                rect.bottomleft,
+                rect.bottomright,
+                rect.center,
+                (rect.left, rect.centery),
+                (rect.right, rect.centery),
+                (rect.centerx, rect.top),
+                (rect.centerx, rect.bottom),
+            ]
+        else:
+            # 检测更多点（更精确但更慢）
+            points = []
+            step = 4  # 每 4 像素检测一次
+            for px in range(rect.left, rect.right, step):
+                for py in range(rect.top, rect.bottom, step):
+                    points.append((px, py))
+        
+        # 检测每个点
+        for px, py in points:
+            if self.collides_with_point(px, py):
+                return True
+        
+        return False
     
     def render(self, surface: pygame.Surface, camera_x: int = 0, camera_y: int = 0):
         """渲染家具"""
@@ -436,7 +528,7 @@ class CustomRoomScene:
         return (spawn_x, spawn_y)
     
     def is_position_walkable(self, x: float, y: float) -> bool:
-        """检查位置是否可通行"""
+        """检查位置是否可通行（支持像素级碰撞检测）"""
         # 检查是否在左墙或右墙内
         if x < self.wall_thickness or x > self.total_width - self.wall_thickness:
             return False
@@ -451,12 +543,10 @@ class CustomRoomScene:
             if not (self.door_x <= x <= self.door_x + self.door_width):
                 return False
         
-        # 检查是否与家具碰撞
+        # 检查是否与家具碰撞（使用像素级检测）
         for item in self.furniture:
-            if item.collidable:
-                rect = item.get_rect()
-                if rect.collidepoint(x, y):
-                    return False
+            if item.collides_with_point(int(x), int(y)):
+                return False
         
         return True
     
