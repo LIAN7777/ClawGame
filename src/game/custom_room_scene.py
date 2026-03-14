@@ -112,17 +112,17 @@ class CustomRoomScene:
         self.floor_tile_width = self.target_tile_size
         self.floor_tile_height = self.target_tile_size
         
-        # 加载家具（并缩放到合适尺寸，尺寸x1.5）
-        # 门：缩放到约 120x180
-        self.door_img = self._load_and_scale("木门.png", 120, 180)
-        # 冰箱：缩放到约 90x150
-        self.fridge_img = self._load_and_scale("冰箱.png", 90, 150)
-        # 椅子：缩放到约 75x82
-        self.chair_img = self._load_and_scale("椅子.png", 75, 82)
-        # 桌子：缩放到约 135x90
-        self.table_img = self._load_and_scale("桌子.png", 135, 90)
-        # 电视机：缩放到约 150x120
-        self.tv_img = self._load_and_scale("电视机.png", 150, 120)
+        # 加载家具（缩小到原来的 3/4）
+        # 门：缩放到约 60x90（原来的一半）
+        self.door_img = self._load_and_scale("木门.png", 60, 90)
+        # 冰箱：缩放到约 68x112（原来的 3/4）
+        self.fridge_img = self._load_and_scale("冰箱.png", 68, 112)
+        # 椅子：缩放到约 56x62（原来的 3/4）
+        self.chair_img = self._load_and_scale("椅子.png", 56, 62)
+        # 桌子：缩放到约 101x68（原来的 3/4）
+        self.table_img = self._load_and_scale("桌子.png", 101, 68)
+        # 电视机：缩放到约 113x90（原来的 3/4）
+        self.tv_img = self._load_and_scale("电视机.png", 113, 90)
         
         print(f"[CustomRoomScene] 素材加载完成")
         print(f"  地板tile: {self.floor_tile_width}x{self.floor_tile_height}")

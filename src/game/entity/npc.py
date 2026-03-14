@@ -750,8 +750,8 @@ class NPC(Entity):
         # 获取样式配置
         style = STYLE_DEFAULT
         
-        # 使用支持中文的字体 - 缩小为 12px
-        font = _get_chinese_font(12)
+        # 使用支持中文的字体 - 14px 粗体
+        font = _get_chinese_font(14)
         
         # 文本最大宽度限制（屏幕宽度的 60%）
         screen_width = surface.get_width()
