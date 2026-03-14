@@ -1,0 +1,7 @@
+{
+    "api_key": "540c1ccccc514830b8103103938c9c5c.GpICCRsHkl7uEFiv",
+    "base_url": "https://open.bigmodel.cn/api/paas/v4",
+    "model": "glm-4-flash",
+    "max_tokens": 150,
+    "temperature": 0.8
+}

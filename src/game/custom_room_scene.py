@@ -582,10 +582,14 @@ class CustomRoomScene:
     def _init_test_npcs(self):
         """初始化测试NPC"""
         # 在房间内放置几个NPC
+        # 第一个是 LLM NPC（小橘）
+        xiaoju = NPC(300, 300, 'yellow', '小橘', use_llm=True, persona_name='小橘')
+        self.add_npc(xiaoju)
+        
+        # 其他是传统 NPC
         npc_configs = [
-            (200, 300, 'green', '小绿'),
-            (500, 250, 'blue', '小蓝'),
-            (400, 400, 'yellow', '小黄'),
+            (200, 200, 'green', '小绿'),
+            (500, 300, 'blue', '小蓝'),
         ]
         
         for x, y, color, name in npc_configs:

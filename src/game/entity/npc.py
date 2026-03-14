@@ -481,7 +481,9 @@ class NPC(Entity):
         x: float,
         y: float,
         color_scheme: str = 'pink',
-        name: str = "NPC"
+        name: str = "NPC",
+        use_llm: bool = False,
+        persona_name: str = "小橘"
     ):
         """
         初始化 NPC
@@ -491,6 +493,8 @@ class NPC(Entity):
             y: 世界 Y 坐标（像素）
             color_scheme: 颜色方案名称
             name: NPC 名称
+            use_llm: 是否使用 LLM 生成对话
+            persona_name: 人设名称（用于 LLM）
         """
         # 调用父类初始化
         super().__init__(x, y, self.SPRITE_SIZE, self.SPRITE_SIZE)
@@ -518,6 +522,16 @@ class NPC(Entity):
         self.bubble_text: str = ""
         self.bubble_timer: float = 0.0
 
+        # ===== LLM 对话系统 =====
+        self.use_llm = use_llm
+        self.persona_name = persona_name
+        self.is_thinking: bool = False  # 是否正在思考
+        self._llm_client = None
+        self._memory = None
+        
+        if use_llm:
+            self._init_llm()
+
         # 圆形碰撞模型（比精灵稍小，更顺滑）
         self.collision_radius: float = (self.SPRITE_SIZE - 6) / 2  # 半径，比精灵小一点
 
@@ -544,6 +558,30 @@ class NPC(Entity):
         self.scene = None
         # 初始状态：随机决定是走动还是停留
         self._start_random_state()
+    
+    def _init_llm(self) -> None:
+        """初始化 LLM 相关组件"""
+        try:
+            from ai.llm_client import get_llm_client
+            from ai.memory import ConversationMemory
+            from ai.npc_persona import NPCPersona
+            import os
+            
+            # 获取 LLM 客户端
+            self._llm_client = get_llm_client()
+            
+            # 初始化记忆管理
+            memory_file = os.path.join(
+                os.path.dirname(__file__), 
+                '..', '..', 'data', f'npc_memory_{self.persona_name}.json'
+            )
+            self._memory = ConversationMemory(memory_file)
+            
+            print(f"[NPC] LLM 已初始化: {self.persona_name}")
+            
+        except Exception as e:
+            print(f"[NPC] LLM 初始化失败: {e}")
+            self.use_llm = False
 
     def set_scene(self, scene) -> None:
         """
@@ -622,17 +660,75 @@ class NPC(Entity):
         """
         import random
 
+        # 如果正在思考，返回提示
+        if self.is_thinking:
+            return "..."
+
         # 如果正在自言自语，立即切换为互动对话
         # 如果已经在互动对话中，不重复触发
         if self.show_bubble and self.state == NPCState.TALKING:
             return self.bubble_text
 
-        # 根据颜色方案选择对话内容
+        # 使用 LLM 生成对话
+        if self.use_llm:
+            return self._interact_with_llm()
+
+        # 根据颜色方案选择对话内容（传统方式）
         dialogs = self.DIALOGS.get(self.color_scheme, self.DIALOGS['default'])
         text = random.choice(dialogs)
 
         self.show_dialog(text)
         return text
+    
+    def _interact_with_llm(self) -> str:
+        """
+        使用 LLM 生成交互对话
+        
+        Returns:
+            对话文本
+        """
+        from ai.npc_persona import NPCPersona
+        
+        # 显示"思考中..."
+        self.is_thinking = True
+        self.show_bubble = True
+        self.bubble_text = "思考中..."
+        self.bubble_timer = 10.0  # 最多等待 10 秒
+        self.state = NPCState.TALKING
+        
+        try:
+            # 获取系统提示词
+            system_prompt = NPCPersona.get_system_prompt(self.persona_name)
+            
+            # 获取对话历史
+            messages = self._memory.get_messages() if self._memory else []
+            
+            # 添加当前玩家输入（简单模拟玩家打招呼）
+            # TODO: 后续可以从游戏获取实际输入
+            player_input = "你好"
+            messages.append({"role": "user", "content": player_input})
+            
+            # 调用 LLM
+            response = self._llm_client.chat(messages, system_prompt)
+            
+            # 保存对话
+            if self._memory:
+                self._memory.add_turn("user", player_input)
+                self._memory.add_turn("assistant", response)
+            
+            # 显示回复
+            self.is_thinking = False
+            self.show_dialog(response)
+            
+            return response
+            
+        except Exception as e:
+            print(f"[NPC] LLM 调用失败: {e}")
+            # 使用回退回复
+            fallback = NPCPersona.get_fallback_response(self.persona_name)
+            self.is_thinking = False
+            self.show_dialog(fallback)
+            return fallback
 
     def update(self, dt: float) -> None:
         """
