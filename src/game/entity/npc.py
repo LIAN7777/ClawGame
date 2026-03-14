@@ -1,10 +1,13 @@
 """
 ClawGame - NPC 类模块
 非玩家角色类，继承自 Entity
+支持异步 LLM 对话，不阻塞游戏主进程
 """
 
 from enum import Enum
-from typing import TYPE_CHECKING, Optional, Tuple, Dict
+from typing import TYPE_CHECKING, Optional, Tuple, Dict, Callable
+import threading
+import queue
 
 import math
 import os
@@ -529,6 +532,10 @@ class NPC(Entity):
         self._llm_client = None
         self._memory = None
         
+        # 异步对话队列
+        self._response_queue: queue.Queue = queue.Queue()
+        self._llm_thread: Optional[threading.Thread] = None
+        
         if use_llm:
             self._init_llm()
 
@@ -651,9 +658,12 @@ class NPC(Entity):
         # 对话结束后，开始停留状态
         self._start_idle()
 
-    def interact(self) -> str:
+    def interact(self, player_input: str = "你好") -> str:
         """
         被交互时调用
+
+        Args:
+            player_input: 玩家输入的对话内容
 
         Returns:
             对话文本
@@ -671,7 +681,7 @@ class NPC(Entity):
 
         # 使用 LLM 生成对话
         if self.use_llm:
-            return self._interact_with_llm()
+            return self._interact_with_llm_async(player_input)
 
         # 根据颜色方案选择对话内容（传统方式）
         dialogs = self.DIALOGS.get(self.color_scheme, self.DIALOGS['default'])
@@ -680,10 +690,13 @@ class NPC(Entity):
         self.show_dialog(text)
         return text
     
-    def _interact_with_llm(self) -> str:
+    def _interact_with_llm_async(self, player_input: str) -> str:
         """
-        使用 LLM 生成交互对话
+        使用 LLM 异步生成交互对话（不阻塞主线程）
         
+        Args:
+            player_input: 玩家输入的对话内容
+            
         Returns:
             对话文本
         """
@@ -693,26 +706,55 @@ class NPC(Entity):
         self.is_thinking = True
         self.show_bubble = True
         self.bubble_text = "思考中..."
-        self.bubble_timer = 10.0  # 最多等待 10 秒
+        self.bubble_timer = 30.0  # 最多等待 30 秒
         self.state = NPCState.TALKING
         
+        # 在后台线程中调用 LLM
+        def llm_worker():
+            try:
+                # 获取系统提示词
+                system_prompt = NPCPersona.get_system_prompt(self.persona_name)
+                
+                # 获取对话历史
+                messages = self._memory.get_messages() if self._memory else []
+                
+                # 添加当前玩家输入
+                messages.append({"role": "user", "content": player_input})
+                
+                # 调用 LLM
+                response = self._llm_client.chat(messages, system_prompt)
+                
+                # 将结果放入队列
+                self._response_queue.put(("success", response, player_input))
+                
+            except Exception as e:
+                print(f"[NPC] LLM 调用失败: {e}")
+                # 使用回退回复
+                fallback = NPCPersona.get_fallback_response(self.persona_name)
+                self._response_queue.put(("error", fallback, player_input))
+        
+        # 启动后台线程
+        self._llm_thread = threading.Thread(target=llm_worker, daemon=True)
+        self._llm_thread.start()
+        
+        return "思考中..."
+    
+    def check_llm_response(self) -> bool:
+        """
+        检查 LLM 响应是否完成（每帧调用）
+        
+        Returns:
+            是否收到了新响应
+        """
+        if not self.is_thinking:
+            return False
+        
         try:
-            # 获取系统提示词
-            system_prompt = NPCPersona.get_system_prompt(self.persona_name)
-            
-            # 获取对话历史
-            messages = self._memory.get_messages() if self._memory else []
-            
-            # 添加当前玩家输入（简单模拟玩家打招呼）
-            # TODO: 后续可以从游戏获取实际输入
-            player_input = "你好"
-            messages.append({"role": "user", "content": player_input})
-            
-            # 调用 LLM
-            response = self._llm_client.chat(messages, system_prompt)
+            # 非阻塞检查队列
+            status, response, player_input = self._response_queue.get_nowait()
             
             # 保存对话
-            if self._memory:
+            if self._memory and status == "success":
                 self._memory.add_turn("user", player_input)
                 self._memory.add_turn("assistant", response)
             
@@ -720,15 +762,11 @@ class NPC(Entity):
             self.is_thinking = False
             self.show_dialog(response)
             
-            return response
+            return True
             
-        except Exception as e:
-            print(f"[NPC] LLM 调用失败: {e}")
-            # 使用回退回复
-            fallback = NPCPersona.get_fallback_response(self.persona_name)
-            self.is_thinking = False
-            self.show_dialog(fallback)
-            return fallback
+        except queue.Empty:
+            # 队列为空，还在等待
+            return False
 
     def update(self, dt: float) -> None:
         """
@@ -739,6 +777,10 @@ class NPC(Entity):
         """
         if not self.active:
             return
+        
+        # 检查 LLM 响应（异步）
+        if self.is_thinking:
+            self.check_llm_response()
 
         # 更新动画时间
         self.anim_time += dt

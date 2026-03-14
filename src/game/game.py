@@ -12,6 +12,7 @@ from game.entity.player import Player
 from game.interaction import InteractionSystem
 from game.scene import Scene
 from game.custom_room_scene import CustomRoomScene
+from game.ui.text_input import TextInput
 from utils.asset_loader import AssetLoader
 
 
@@ -90,6 +91,38 @@ class Game:
         # 初始化交互系统
         self.interaction_system = InteractionSystem()
         
+        # 初始化文本输入框
+        self.text_input = TextInput(
+            width=350,
+            height=45,
+            font_size=18,
+            placeholder="输入对话内容，回车发送..."
+        )
+        self.text_input.on_submit = self._on_text_submit
+        self.text_input.on_cancel = self._on_text_cancel
+        
+        # 输入模式状态
+        self.input_mode: bool = False
+        
+    def _on_text_submit(self, text: str) -> None:
+        """
+        文本输入提交回调
+        
+        Args:
+            text: 玩家输入的文本
+        """
+        self.input_mode = False
+        
+        # 获取当前可交互的 NPC
+        npc = self.interaction_system.nearby_npc
+        if npc and npc.use_llm:
+            # 发送给 NPC
+            npc.interact(text)
+    
+    def _on_text_cancel(self) -> None:
+        """文本输入取消回调"""
+        self.input_mode = False
+        
     def handle_event(self, event: pygame.event.Event) -> None:
         """
         处理事件
@@ -97,14 +130,32 @@ class Game:
         Args:
             event: pygame 事件
         """
+        # 输入模式优先处理
+        if self.input_mode:
+            handled = self.text_input.handle_event(event)
+            if handled:
+                return
+        
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
-                self.paused = not self.paused
+                if self.input_mode:
+                    # 输入模式下 ESC 取消输入
+                    self.text_input.hide()
+                    self.input_mode = False
+                else:
+                    # 非输入模式下切换暂停
+                    self.paused = not self.paused
             elif event.key == pygame.K_q:
                 self.running = False
             elif event.key == pygame.K_e:
-                # 尝试交互
-                self.interaction_system.handle_key(event.key)
+                # E 键：简单打招呼
+                if not self.input_mode:
+                    self.interaction_system.handle_key(event.key)
+            elif event.key == pygame.K_SPACE:
+                # 空格键：打开输入框进行自由对话
+                if not self.input_mode and self.interaction_system.nearby_npc is not None:
+                    self.input_mode = True
+                    self.text_input.show()
     
     def update(self, dt: float = 0.0) -> None:
         """
@@ -118,6 +169,12 @@ class Game:
         
         # 保存 delta time
         self._last_dt = dt
+        
+        # 更新输入框
+        if self.input_mode:
+            self.text_input.update(dt)
+            # 输入模式下暂停玩家移动
+            return
         
         # 处理玩家输入
         keys = pygame.key.get_pressed()
@@ -156,9 +213,42 @@ class Game:
         # 渲染交互提示（传入玩家对象用于显示 E 按钮）
         self.interaction_system.render_prompt(target, self.camera, self.player)
         
+        # 渲染左上角提示
+        self._render_hints(target)
+        
+        # 渲染文本输入框
+        if self.input_mode:
+            self.text_input.render(target)
+        
         # 渲染暂停提示
         if self.paused:
             self._render_pause_overlay(target, width, height)
+    
+    def _render_hints(self, surface: pygame.Surface) -> None:
+        """渲染左上角操作提示"""
+        # 提示文本
+        hints = []
+        if self.interaction_system.nearby_npc is not None:
+            hints.append("E: 打招呼")
+            hints.append("空格: 对话")
+        else:
+            hints.append("E/空格: 与NPC交互")
+        
+        # 使用小字体
+        try:
+            font = pygame.font.SysFont('Microsoft YaHei', 12)
+            test = font.render('测试', True, (255, 255, 255))
+            if test.get_width() < 10:
+                raise Exception("字体不支持中文")
+        except:
+            font = pygame.font.Font(None, 16)
+        
+        # 渲染提示（左上角）
+        y_offset = 10
+        for hint in hints:
+            text_surface = font.render(hint, True, (200, 200, 200))
+            surface.blit(text_surface, (10, y_offset))
+            y_offset += 18
     
     def _render_pause_overlay(
         self, 
