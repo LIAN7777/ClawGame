@@ -32,6 +32,8 @@ _FONT_PATHS = {
     # 项目本地字体（优先）
     'press_start_2p': "/root/.openclaw/workspace-clawgame/assets/fonts/PressStart2P-Regular.ttf",
     'noto_cjk': "/root/.openclaw/workspace-clawgame/assets/fonts/NotoSansCJK-Bold.ttc",
+    'vonwaon_12': "/root/.openclaw/workspace-clawgame/assets/fonts/VonwaonBitmap-12px.ttf",
+    'vonwaon_16': "/root/.openclaw/workspace-clawgame/assets/fonts/VonwaonBitmap-16px.ttf",
     # 系统字体（备用）
     'noto_cjk_system': "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
 }
@@ -45,9 +47,10 @@ def _get_chinese_font(size: int) -> pygame.font.Font:
     获取支持中文的字体
     
     优先级：
-    1. 项目本地字体：Press Start 2P（英文）+ Noto Sans CJK（中文）
-    2. 系统字体：Noto Sans CJK, 微软雅黑等
-    3. 回退：默认字体
+    1. VonwaonBitmap（像素位图字体，适合游戏）
+    2. 项目本地字体：Noto Sans CJK（中文）
+    3. 系统字体：Noto Sans CJK, 微软雅黑等
+    4. 回退：默认字体
     
     Args:
         size: 字体大小
@@ -62,7 +65,26 @@ def _get_chinese_font(size: int) -> pygame.font.Font:
     
     font = None
     
-    # 1. 优先使用 Noto Sans CJK（本地或系统）
+    # 1. 优先使用 VonwaonBitmap（像素位图字体）
+    # 根据大小选择合适的版本
+    if size <= 12:
+        vonwaon_path = _FONT_PATHS.get('vonwaon_12')
+    else:
+        vonwaon_path = _FONT_PATHS.get('vonwaon_16')
+    
+    if vonwaon_path and os.path.exists(vonwaon_path):
+        try:
+            font = pygame.font.Font(vonwaon_path, size)
+            test_surface = font.render('你好', True, (0, 0, 0))
+            w, h = test_surface.get_size()
+            if w > 15 and h > 5:
+                _font_cache[cache_key] = font
+                print(f"字体加载成功: VonwaonBitmap ({vonwaon_path})")
+                return font
+        except Exception as e:
+            print(f"VonwaonBitmap 加载失败: {e}")
+    
+    # 2. 尝试 Noto Sans CJK（本地或系统）
     noto_path = _FONT_PATHS.get('noto_cjk')
     if noto_path and os.path.exists(noto_path):
         try:
