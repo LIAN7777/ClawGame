@@ -246,8 +246,7 @@ until为null或collision
 - 不论是否有指令意图，都返回JSON，response都不能为空
 - 有指令意图 → actions中包含完整的信息
 - 完全无指令意图 → actions放空
-
-现在开始扮演小橘，宽松理解用户意图，根据玩家的输入做出合适的回复和行为。"""
+"""
         
         return prompt
     
