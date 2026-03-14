@@ -27,13 +27,13 @@ from config.ui import (
 if TYPE_CHECKING:
     from game.camera import Camera
 
-# 字体文件路径（优先使用本地资源）
-_FONT_PATHS = {
+# 字体文件相对路径（相对于项目根目录）
+_FONT_RELATIVE_PATHS = {
     # 项目本地字体（优先）
-    'press_start_2p': "/root/.openclaw/workspace-clawgame/assets/fonts/PressStart2P-Regular.ttf",
-    'noto_cjk': "/root/.openclaw/workspace-clawgame/assets/fonts/NotoSansCJK-Bold.ttc",
-    'vonwaon_12': "/root/.openclaw/workspace-clawgame/assets/fonts/VonwaonBitmap-12px.ttf",
-    'vonwaon_16': "/root/.openclaw/workspace-clawgame/assets/fonts/VonwaonBitmap-16px.ttf",
+    'press_start_2p': "assets/fonts/PressStart2P-Regular.ttf",
+    'noto_cjk': "assets/fonts/NotoSansCJK-Bold.ttc",
+    'vonwaon_12': "assets/fonts/VonwaonBitmap-12px.ttf",
+    'vonwaon_16': "assets/fonts/VonwaonBitmap-16px.ttf",
     # 系统字体（备用）
     'noto_cjk_system': "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
 }
@@ -68,35 +68,40 @@ def _get_chinese_font(size: int) -> pygame.font.Font:
     # 1. 优先使用 VonwaonBitmap（像素位图字体）
     # 根据大小选择合适的版本
     if size <= 12:
-        vonwaon_path = _FONT_PATHS.get('vonwaon_12')
+        vonwaon_key = 'vonwaon_12'
     else:
-        vonwaon_path = _FONT_PATHS.get('vonwaon_16')
+        vonwaon_key = 'vonwaon_16'
     
-    if vonwaon_path and os.path.exists(vonwaon_path):
-        try:
-            font = pygame.font.Font(vonwaon_path, size)
-            test_surface = font.render('你好', True, (0, 0, 0))
-            w, h = test_surface.get_size()
-            if w > 15 and h > 5:
-                _font_cache[cache_key] = font
-                print(f"字体加载成功: VonwaonBitmap ({vonwaon_path})")
-                return font
-        except Exception as e:
-            print(f"VonwaonBitmap 加载失败: {e}")
+    vonwaon_rel = _FONT_RELATIVE_PATHS.get(vonwaon_key)
+    if vonwaon_rel:
+        vonwaon_path = get_full_path(vonwaon_rel)
+        if os.path.exists(vonwaon_path):
+            try:
+                font = pygame.font.Font(vonwaon_path, size)
+                test_surface = font.render('你好', True, (0, 0, 0))
+                w, h = test_surface.get_size()
+                if w > 15 and h > 5:
+                    _font_cache[cache_key] = font
+                    print(f"字体加载成功: VonwaonBitmap ({vonwaon_path})")
+                    return font
+            except Exception as e:
+                print(f"VonwaonBitmap 加载失败: {e}")
     
     # 2. 尝试 Noto Sans CJK（本地或系统）
-    noto_path = _FONT_PATHS.get('noto_cjk')
-    if noto_path and os.path.exists(noto_path):
-        try:
-            font = pygame.font.Font(noto_path, size)
-            test_surface = font.render('你好', True, (0, 0, 0))
-            w, h = test_surface.get_size()
-            if w > 15 and h > 5:
-                _font_cache[cache_key] = font
-                print(f"字体加载成功: Noto Sans CJK ({noto_path})")
-                return font
-        except Exception as e:
-            print(f"Noto Sans CJK 加载失败: {e}")
+    noto_rel = _FONT_RELATIVE_PATHS.get('noto_cjk')
+    if noto_rel:
+        noto_path = get_full_path(noto_rel)
+        if os.path.exists(noto_path):
+            try:
+                font = pygame.font.Font(noto_path, size)
+                test_surface = font.render('你好', True, (0, 0, 0))
+                w, h = test_surface.get_size()
+                if w > 15 and h > 5:
+                    _font_cache[cache_key] = font
+                    print(f"字体加载成功: Noto Sans CJK ({noto_path})")
+                    return font
+            except Exception as e:
+                print(f"Noto Sans CJK 加载失败: {e}")
     
     # 2. 尝试系统字体（SysFont）
     chinese_font_names = [
@@ -135,7 +140,7 @@ def _get_chinese_font(size: int) -> pygame.font.Font:
             continue
     
     # 3. 尝试系统 Noto Sans CJK
-    noto_system = _FONT_PATHS.get('noto_cjk_system')
+    noto_system = _FONT_RELATIVE_PATHS.get('noto_cjk_system')
     if noto_system and os.path.exists(noto_system):
         try:
             font = pygame.font.Font(noto_system, size)
@@ -196,18 +201,20 @@ def _get_english_font(size: int) -> pygame.font.Font:
     font = None
     
     # 优先使用 Press Start 2P
-    press_path = _FONT_PATHS.get('press_start_2p')
-    if press_path and os.path.exists(press_path):
-        try:
-            font = pygame.font.Font(press_path, size)
-            test_surface = font.render('Hello', True, (0, 0, 0))
-            w, h = test_surface.get_size()
-            if w > 10 and h > 5:
-                _font_cache[cache_key] = font
-                print(f"英文字体加载成功: Press Start 2P ({press_path})")
-                return font
-        except Exception as e:
-            print(f"Press Start 2P 加载失败: {e}")
+    press_rel = _FONT_RELATIVE_PATHS.get('press_start_2p')
+    if press_rel:
+        press_path = get_full_path(press_rel)
+        if os.path.exists(press_path):
+            try:
+                font = pygame.font.Font(press_path, size)
+                test_surface = font.render('Hello', True, (0, 0, 0))
+                w, h = test_surface.get_size()
+                if w > 10 and h > 5:
+                    _font_cache[cache_key] = font
+                    print(f"英文字体加载成功: Press Start 2P ({press_path})")
+                    return font
+            except Exception as e:
+                print(f"Press Start 2P 加载失败: {e}")
     
     # 回退到默认字体
     font = pygame.font.Font(None, size)
