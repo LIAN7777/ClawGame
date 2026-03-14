@@ -227,9 +227,11 @@ def _get_english_font(size: int) -> pygame.font.Font:
 
 class NPCState(Enum):
     """NPC 状态枚举"""
-    IDLE = 0      # 闲置
-    WALKING = 1   # 走动中
-    TALKING = 2   # 对话中
+    IDLE = 0        # 闲置
+    WALKING = 1     # 走动中
+    TALKING = 2     # 对话中
+    COMMAND_MOVE = 3  # 指令控制的移动（新增）
+    FOLLOWING = 4     # 跟随玩家（Phase 2，预留）
 
 
 # ============================================================
@@ -563,8 +565,166 @@ class NPC(Entity):
         self.idle_duration_range: Tuple[float, float] = (1.5, 4.0)
         # 场景引用（用于碰撞检测）
         self.scene = None
+        
+        # ===== 指令控制系统 =====
+        # 指令移动方向（用于 COMMAND_MOVE 状态）
+        self.command_direction: Optional[str] = None  # 'left', 'right', 'up', 'down'
+        # 指令条件：None 或 'collision'
+        self.command_until: Optional[str] = None
+        # 指令移动速度（比随机走动快一点）
+        self.command_move_speed: float = 45.0
+        
         # 初始状态：随机决定是走动还是停留
         self._start_random_state()
+    
+    # ============================================================
+    # 指令执行方法
+    # ============================================================
+    
+    def execute_command(self, command: dict) -> bool:
+        """
+        执行指令
+        
+        Args:
+            command: 解析后的指令字典，包含 type, direction, until 等
+            
+        Returns:
+            是否成功执行
+        """
+        cmd_type = command.get('type')
+        
+        if cmd_type == 'move':
+            # 移动指令
+            direction = command.get('direction')
+            until = command.get('until')
+            
+            if direction is None:
+                return False
+            
+            self.command_direction = direction
+            self.command_until = until
+            self.state = NPCState.COMMAND_MOVE
+            self.walk_timer = 0.0  # 重置移动计时器
+            
+            # 设置移动方向向量
+            self._set_command_direction(direction)
+            
+            # 显示确认气泡
+            direction_text = {
+                'left': '向左',
+                'right': '向右',
+                'up': '向上',
+                'down': '向下'
+            }.get(direction, direction)
+            
+            if until == 'collision':
+                self.show_bubble = True
+                self.bubble_text = f"好的，{direction_text}一直走~"
+                self.bubble_timer = 2.0
+            else:
+                self.show_bubble = True
+                self.bubble_text = f"好的，{direction_text}走~"
+                self.bubble_timer = 1.5
+            
+            return True
+            
+        elif cmd_type == 'stop':
+            # 停止指令
+            self.stop_command()
+            self.show_bubble = True
+            self.bubble_text = "好的，我停下了~"
+            self.bubble_timer = 1.5
+            return True
+            
+        elif cmd_type == 'follow':
+            # 跟随指令（Phase 2，暂不支持）
+            self.show_bubble = True
+            self.bubble_text = "好的，跟着你！（还没实现）"
+            self.bubble_timer = 2.0
+            return False
+        
+        return False
+    
+    def _set_command_direction(self, direction: str) -> None:
+        """
+        根据方向字符串设置移动方向向量
+        
+        Args:
+            direction: 方向字符串 'left', 'right', 'up', 'down'
+        """
+        direction_vectors = {
+            'left': (-1.0, 0.0),
+            'right': (1.0, 0.0),
+            'up': (0.0, -1.0),
+            'down': (0.0, 1.0),
+        }
+        self.walk_direction = direction_vectors.get(direction, (0.0, 0.0))
+    
+    def stop_command(self) -> None:
+        """停止当前指令行为"""
+        self.command_direction = None
+        self.command_until = None
+        self.state = NPCState.IDLE
+        self.walk_direction = (0.0, 0.0)
+    
+    def _update_command_move(self, dt: float) -> None:
+        """
+        更新指令控制的移动
+        
+        Args:
+            dt: 时间增量（秒）
+        """
+        if self.state != NPCState.COMMAND_MOVE:
+            return
+        
+        # 检查是否应该停止
+        if self.command_until is None:
+            # 单步移动，走一小段距离后停止
+            # 移动一步约 32 像素（一个格子）
+            step_distance = 32.0
+            move_time = step_distance / self.command_move_speed
+            
+            # 计算移动量
+            dx = self.walk_direction[0] * self.command_move_speed * dt
+            dy = self.walk_direction[1] * self.command_move_speed * dt
+            
+            # 尝试移动
+            new_x = self.x + dx
+            new_y = self.y + dy
+            
+            if self._check_walkable(new_x, new_y):
+                self.x = new_x
+                self.y = new_y
+            else:
+                # 遇到障碍，停止并提示
+                self.stop_command()
+                self.show_bubble = True
+                self.bubble_text = "走不过去了~"
+                self.bubble_timer = 1.5
+                return
+            
+            # 检查是否走完一步
+            self.walk_timer += dt
+            if self.walk_timer >= move_time:
+                self.stop_command()
+        
+        else:
+            # 持续移动直到碰撞
+            dx = self.walk_direction[0] * self.command_move_speed * dt
+            dy = self.walk_direction[1] * self.command_move_speed * dt
+            
+            new_x = self.x + dx
+            new_y = self.y + dy
+            
+            if self._check_walkable(new_x, new_y):
+                self.x = new_x
+                self.y = new_y
+            else:
+                # 遇到障碍，停止并提示
+                self.stop_command()
+                self.show_bubble = True
+                self.bubble_text = "撞墙了！"
+                self.bubble_timer = 1.5
     
     def _init_llm(self) -> None:
         """初始化 LLM 相关组件"""
@@ -817,10 +977,13 @@ class NPC(Entity):
             if self.state == NPCState.TALKING:
                 return
 
-        # ===== 随机走动系统 =====
+        # ===== 状态更新 =====
         self.state_timer -= dt
         
-        if self.state == NPCState.WALKING:
+        if self.state == NPCState.COMMAND_MOVE:
+            # 指令控制的移动（优先级最高）
+            self._update_command_move(dt)
+        elif self.state == NPCState.WALKING:
             # 走动状态
             self._update_walking(dt)
         elif self.state == NPCState.IDLE:
