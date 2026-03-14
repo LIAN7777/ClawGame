@@ -225,7 +225,8 @@ def _get_english_font(size: int) -> pygame.font.Font:
 class NPCState(Enum):
     """NPC 状态枚举"""
     IDLE = 0      # 闲置
-    TALKING = 1   # 对话中
+    WALKING = 1   # 走动中
+    TALKING = 2   # 对话中
 
 
 # ============================================================
@@ -513,6 +514,72 @@ class NPC(Entity):
         self.hitbox_width = self.SPRITE_SIZE - 8
         self.hitbox_height = self.SPRITE_SIZE - 10
 
+        # ===== 随机走动系统 =====
+        # 移动速度（像素/秒）
+        self.walk_speed: float = 30.0
+        # 当前移动方向 (dx, dy)，归一化向量
+        self.walk_direction: Tuple[float, float] = (0.0, 0.0)
+        # 走动计时器
+        self.walk_timer: float = 0.0
+        # 当前状态持续时间
+        self.state_timer: float = 0.0
+        # 走动持续时间范围（秒）
+        self.walk_duration_range: Tuple[float, float] = (1.0, 3.0)
+        # 停留持续时间范围（秒）
+        self.idle_duration_range: Tuple[float, float] = (1.5, 4.0)
+        # 场景引用（用于碰撞检测）
+        self.scene = None
+        # 初始状态：随机决定是走动还是停留
+        self._start_random_state()
+
+    def set_scene(self, scene) -> None:
+        """
+        设置场景引用
+        
+        Args:
+            scene: 场景对象（需要有 is_position_walkable 方法）
+        """
+        self.scene = scene
+
+    def _start_random_state(self) -> None:
+        """随机决定初始状态并开始"""
+        import random
+        if random.random() < 0.5:
+            # 开始走动
+            self._start_walking()
+        else:
+            # 开始停留
+            self._start_idle()
+
+    def _start_walking(self) -> None:
+        """开始随机走动"""
+        import random
+        
+        self.state = NPCState.WALKING
+        # 随机方向
+        angle = random.uniform(0, 2 * math.pi)
+        self.walk_direction = (math.cos(angle), math.sin(angle))
+        # 随机走动时长
+        self.state_timer = random.uniform(*self.walk_duration_range)
+        self.walk_timer = 0.0
+
+    def _start_idle(self) -> None:
+        """开始停留"""
+        import random
+        
+        self.state = NPCState.IDLE
+        self.walk_direction = (0.0, 0.0)
+        # 随机停留时长
+        self.state_timer = random.uniform(*self.idle_duration_range)
+
+    def _try_change_direction(self) -> None:
+        """尝试改变方向（遇到障碍物时调用）"""
+        import random
+        
+        # 随机选择一个新的方向（避开当前方向的反方向附近）
+        angle = random.uniform(0, 2 * math.pi)
+        self.walk_direction = (math.cos(angle), math.sin(angle))
+
     def show_dialog(self, text: str = "你好！") -> None:
         """
         显示对话气泡
@@ -530,7 +597,8 @@ class NPC(Entity):
         self.show_bubble = False
         self.bubble_text = ""
         self.bubble_timer = 0.0
-        self.state = NPCState.IDLE
+        # 对话结束后，开始停留状态
+        self._start_idle()
 
     def interact(self) -> str:
         """
@@ -570,6 +638,118 @@ class NPC(Entity):
             self.bubble_timer -= dt
             if self.bubble_timer <= 0:
                 self.hide_dialog()
+            return  # 对话时不走动
+
+        # ===== 随机走动系统 =====
+        self.state_timer -= dt
+        
+        if self.state == NPCState.WALKING:
+            # 走动状态
+            self._update_walking(dt)
+        elif self.state == NPCState.IDLE:
+            # 停留状态
+            self._update_idle(dt)
+
+    def _update_walking(self, dt: float) -> None:
+        """
+        更新走动状态
+        
+        Args:
+            dt: 时间增量（秒）
+        """
+        import random
+        
+        # 检查是否该停下来
+        if self.state_timer <= 0:
+            self._start_idle()
+            return
+        
+        # 计算移动量
+        dx = self.walk_direction[0] * self.walk_speed * dt
+        dy = self.walk_direction[1] * self.walk_speed * dt
+        
+        # 尝试移动
+        new_x = self.x + dx
+        new_y = self.y + dy
+        
+        # 检查碰撞
+        can_move_x = self._check_walkable(new_x, self.y)
+        can_move_y = self._check_walkable(self.x, new_y)
+        
+        if can_move_x and can_move_y:
+            # 两个方向都可以移动
+            self.x = new_x
+            self.y = new_y
+        elif can_move_x:
+            # 只能 X 方向移动（Y 方向有障碍）
+            self.x = new_x
+            # 改变 Y 方向
+            self.walk_direction = (self.walk_direction[0], -self.walk_direction[1])
+        elif can_move_y:
+            # 只能 Y 方向移动（X 方向有障碍）
+            self.y = new_y
+            # 改变 X 方向
+            self.walk_direction = (-self.walk_direction[0], self.walk_direction[1])
+        else:
+            # 两个方向都有障碍，改变方向
+            self._try_change_direction()
+        
+        # 走动计时器
+        self.walk_timer += dt
+
+    def _update_idle(self, dt: float) -> None:
+        """
+        更新停留状态
+        
+        Args:
+            dt: 时间增量（秒）
+        """
+        # 检查是否该开始走动
+        if self.state_timer <= 0:
+            self._start_walking()
+
+    def _check_walkable(self, x: float, y: float) -> bool:
+        """
+        检查指定位置是否可行走
+        
+        Args:
+            x: X 坐标
+            y: Y 坐标
+            
+        Returns:
+            是否可行走
+        """
+        if self.scene is None:
+            # 没有场景引用，默认可以移动
+            return True
+        
+        # 计算新的碰撞盒
+        test_hitbox = pygame.Rect(
+            int(x + self.hitbox_offset_x),
+            int(y + self.hitbox_offset_y),
+            self.hitbox_width,
+            self.hitbox_height
+        )
+        
+        # 检查场景中的可行走区域
+        if hasattr(self.scene, 'is_position_walkable'):
+            # 检查碰撞盒的四个角和中心点
+            points_to_check = [
+                test_hitbox.topleft,
+                test_hitbox.topright,
+                test_hitbox.bottomleft,
+                test_hitbox.bottomright,
+                test_hitbox.center,
+            ]
+            
+            for px, py in points_to_check:
+                if not self.scene.is_position_walkable(px, py):
+                    return False
+            
+            return True
+        
+        # 如果场景没有碰撞检测方法，默认可以移动
+        return True
 
     def render(
         self,

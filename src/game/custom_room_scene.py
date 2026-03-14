@@ -301,6 +301,7 @@ class CustomRoomScene:
     
     def add_npc(self, npc: NPC):
         """添加NPC"""
+        npc.set_scene(self)  # 设置场景引用，用于碰撞检测
         self.npcs.append(npc)
         self.entities.append(npc)
     
