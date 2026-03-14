@@ -421,7 +421,7 @@ class NPC(Entity):
     IDLE_FLOAT_SPEED: float = 3.0       # 闲置浮动速度
 
     # 精灵尺寸
-    SPRITE_SIZE: int = 24  # 与玩家相同
+    SPRITE_SIZE: int = 32  # 与玩家相同
 
     # NPC 颜色配置（不同颜色方案）
     COLOR_SCHEMES = {
@@ -463,8 +463,18 @@ class NPC(Entity):
         'yellow': ["你好你好~", "见到你真开心！", "有什么想聊的吗？"],
     }
 
+    # 自言自语内容（NPC自己说话）
+    MUMURS = {
+        'default': ["嗯...", "有点无聊...", "今天天气不错~", "想去哪走走呢...", "呼~"],
+        'green': ["草地上好舒服~", "有没有好吃的呢...", "有点困了...", "嗯嗯~"],
+        'blue': ["想看海...", "天空好蓝~", "有点冷...", "嘿嘿~"],
+        'yellow': ["阳光真好~", "想睡觉...", "有点饿了...", "啦啦啦~"],
+    }
+
     # 对话气泡配置
     BUBBLE_DURATION: float = 3.0  # 气泡显示时长（秒）
+    MUMUR_DURATION: float = 2.0   # 自言自语气泡时长（秒）
+    MUMUR_CHANCE: float = 0.02    # 每帧自言自语概率（约每秒0.12次，即每8秒左右一次）
 
     def __init__(
         self,
@@ -633,12 +643,22 @@ class NPC(Entity):
         # 更新动画时间
         self.anim_time += dt
 
-        # 更新对话气泡计时器
+        # 更新气泡计时器
         if self.show_bubble:
             self.bubble_timer -= dt
             if self.bubble_timer <= 0:
-                self.hide_dialog()
-            return  # 对话时不走动
+                # 区分对话和自言自语
+                if self.state == NPCState.TALKING:
+                    # 对话结束，恢复
+                    self.hide_dialog()
+                else:
+                    # 自言自语结束，只清除气泡
+                    self.show_bubble = False
+                    self.bubble_text = ""
+            
+            # 对话时不走动
+            if self.state == NPCState.TALKING:
+                return
 
         # ===== 随机走动系统 =====
         self.state_timer -= dt
@@ -704,9 +724,30 @@ class NPC(Entity):
         Args:
             dt: 时间增量（秒）
         """
+        import random
+        
         # 检查是否该开始走动
         if self.state_timer <= 0:
             self._start_walking()
+            return
+        
+        # 随机自言自语（不在对话中时）
+        if not self.show_bubble and random.random() < self.MUMUR_CHANCE:
+            self._do_mumur()
+
+    def _do_mumur(self) -> None:
+        """执行自言自语"""
+        import random
+        
+        # 获取对应颜色的自言自语内容
+        mumurs = self.MUMURS.get(self.color_scheme, self.MUMURS['default'])
+        text = random.choice(mumurs)
+        
+        # 显示自言自语气泡
+        self.show_bubble = True
+        self.bubble_text = text
+        self.bubble_timer = self.MUMUR_DURATION
+        # 自言自语时不改变状态，保持 IDLE
 
     def _check_walkable(self, x: float, y: float) -> bool:
         """

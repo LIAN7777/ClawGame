@@ -59,7 +59,7 @@ class Player(Entity):
     JUMP_STRETCH: float = 1.2          # 空中拉伸比例
     
     # 精灵尺寸
-    SPRITE_SIZE: int = 24        # 24x24 像素（小于 tile 便于移动）
+    SPRITE_SIZE: int = 32        # 32x32 像素（增大后更醒目）
     
     # 颜色配置（主角独特配色 - 鲜艳的珊瑚粉色）
     BODY_COLOR = (255, 127, 127)        # 珊瑚粉身体（比NPC更鲜艳）

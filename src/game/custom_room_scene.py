@@ -112,17 +112,17 @@ class CustomRoomScene:
         self.floor_tile_width = self.target_tile_size
         self.floor_tile_height = self.target_tile_size
         
-        # 加载家具（缩小到原来的 3/4）
-        # 门：缩放到约 60x90（原来的一半）
+        # 加载家具（重新设计的尺寸）
+        # 门：缩放到约 60x90
         self.door_img = self._load_and_scale("木门.png", 60, 90)
-        # 冰箱：缩放到约 68x112（原来的 3/4）
-        self.fridge_img = self._load_and_scale("冰箱.png", 68, 112)
-        # 椅子：缩放到约 56x62（原来的 3/4）
-        self.chair_img = self._load_and_scale("椅子.png", 56, 62)
-        # 桌子：缩放到约 101x68（原来的 3/4）
-        self.table_img = self._load_and_scale("桌子.png", 101, 68)
-        # 电视机：缩放到约 113x90（原来的 3/4）
-        self.tv_img = self._load_and_scale("电视机.png", 113, 90)
+        # 冰箱：缩放到约 80x130（稍大一点）
+        self.fridge_img = self._load_and_scale("冰箱.png", 80, 130)
+        # 椅子：缩放到约 60x66
+        self.chair_img = self._load_and_scale("椅子.png", 60, 66)
+        # 桌子（中心桌）：做大一点，约 140x95
+        self.table_img = self._load_and_scale("桌子.png", 140, 95)
+        # 电视机：缩放到约 120x95
+        self.tv_img = self._load_and_scale("电视机.png", 120, 95)
         
         print(f"[CustomRoomScene] 素材加载完成")
         print(f"  地板tile: {self.floor_tile_width}x{self.floor_tile_height}")
@@ -237,54 +237,57 @@ class CustomRoomScene:
         self.furniture.append(door)
         placed_rects.append(door.get_rect())
         
-        # 2. 冰箱（靠左墙，确保不在门禁区）
-        fridge_positions = [
-            (inner_left + 30, inner_top + 50),  # 左上角
-            (inner_left + 30, inner_top + 200),  # 左侧中间
+        # ===== 新的家具布置逻辑 =====
+        # 房间中心区域
+        room_center_x = (inner_left + inner_right) // 2
+        room_center_y = (inner_top + inner_bottom) // 2
+        
+        # 2. 中心桌子（1张大桌子，放在房间中心偏左）
+        table_w = self.table_img.get_width()
+        table_h = self.table_img.get_height()
+        center_table_x = room_center_x - table_w // 2 - 50  # 偏左一点
+        center_table_y = room_center_y - table_h // 2
+        
+        center_table = FurnitureItem("中心桌", self.table_img, center_table_x, center_table_y, collidable=True)
+        self.furniture.append(center_table)
+        placed_rects.append(center_table.get_rect())
+        
+        # 3. 桌子周围的椅子（2-3把，围绕桌子）
+        chair_w = self.chair_img.get_width()
+        chair_h = self.chair_img.get_height()
+        chair_spacing = 70  # 椅子间距
+        
+        # 椅子位置：桌子下方和两侧
+        chair_positions = [
+            (center_table_x + table_w // 2 - chair_w // 2, center_table_y + table_h + 10),  # 下方
+            (center_table_x - chair_w - 10, center_table_y + table_h // 2 - chair_h // 2),  # 左侧
+            (center_table_x + table_w + 10, center_table_y + table_h // 2 - chair_h // 2),  # 右侧
         ]
-        for fridge_x, fridge_y in fridge_positions:
-            fridge_rect = pygame.Rect(fridge_x, fridge_y, self.fridge_img.get_width(), self.fridge_img.get_height())
-            if can_place(fridge_rect):
-                fridge = FurnitureItem("冰箱", self.fridge_img, fridge_x, fridge_y, collidable=True)
-                self.furniture.append(fridge)
-                placed_rects.append(fridge.get_rect())
-                break
         
-        # 3. 电视机（右上角或右上方，确保不在门禁区）
-        tv_positions = [
-            (inner_right - self.tv_img.get_width() - 30, inner_top + 30),  # 右上角
-        ]
-        for tv_x, tv_y in tv_positions:
-            tv_rect = pygame.Rect(tv_x, tv_y, self.tv_img.get_width(), self.tv_img.get_height())
-            # 不检查门禁区，因为右上角肯定不在门禁区
-            # 只检查与其他家具冲突
-            conflict = False
-            for existing in placed_rects:
-                expanded = existing.inflate(30, 30)
-                if tv_rect.colliderect(expanded):
-                    conflict = True
-                    break
-            if not conflict:
-                tv = FurnitureItem("电视机", self.tv_img, tv_x, tv_y, collidable=True)
-                self.furniture.append(tv)
-                placed_rects.append(tv.get_rect())
-                break
+        for i, (cx, cy) in enumerate(chair_positions[:3]):
+            chair = FurnitureItem(f"椅子{i+1}", self.chair_img, cx, cy, collidable=True)
+            self.furniture.append(chair)
+            placed_rects.append(chair.get_rect())
         
-        # 4. 多张桌子（2张）
-        for i in range(2):
-            pos = find_random_position(self.table_img.get_width(), self.table_img.get_height())
-            if pos:
-                table = FurnitureItem(f"桌子{i+1}", self.table_img, pos[0], pos[1], collidable=True)
-                self.furniture.append(table)
-                placed_rects.append(table.get_rect())
+        # 4. 冰箱（左上角靠墙）
+        fridge_w = self.fridge_img.get_width()
+        fridge_h = self.fridge_img.get_height()
+        fridge_x = inner_left + 20
+        fridge_y = inner_top + 30
         
-        # 5. 多把椅子（3把）
-        for i in range(3):
-            pos = find_random_position(self.chair_img.get_width(), self.chair_img.get_height())
-            if pos:
-                chair = FurnitureItem(f"椅子{i+1}", self.chair_img, pos[0], pos[1], collidable=True)
-                self.furniture.append(chair)
-                placed_rects.append(chair.get_rect())
+        fridge = FurnitureItem("冰箱", self.fridge_img, fridge_x, fridge_y, collidable=True)
+        self.furniture.append(fridge)
+        placed_rects.append(fridge.get_rect())
+        
+        # 5. 电视机（右上角靠墙）
+        tv_w = self.tv_img.get_width()
+        tv_h = self.tv_img.get_height()
+        tv_x = inner_right - tv_w - 30
+        tv_y = inner_top + 30
+        
+        tv = FurnitureItem("电视机", self.tv_img, tv_x, tv_y, collidable=True)
+        self.furniture.append(tv)
+        placed_rects.append(tv.get_rect())
         
         print(f"[CustomRoomScene] 放置家具: {len(self.furniture)} 件")
         for f in self.furniture:
