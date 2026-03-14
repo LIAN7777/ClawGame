@@ -518,6 +518,9 @@ class NPC(Entity):
         self.bubble_text: str = ""
         self.bubble_timer: float = 0.0
 
+        # 圆形碰撞模型（比精灵稍小，更顺滑）
+        self.collision_radius: float = (self.SPRITE_SIZE - 6) / 2  # 半径，比精灵小一点
+
         # 调整碰撞盒（比精灵稍小）
         self.hitbox_offset_x = 4
         self.hitbox_offset_y = 6
@@ -765,24 +768,22 @@ class NPC(Entity):
             # 没有场景引用，默认可以移动
             return True
         
-        # 计算新的碰撞盒
-        test_hitbox = pygame.Rect(
-            int(x + self.hitbox_offset_x),
-            int(y + self.hitbox_offset_y),
-            self.hitbox_width,
-            self.hitbox_height
-        )
+        # 计算圆心位置
+        center_x = x + self.SPRITE_SIZE / 2
+        center_y = y + self.SPRITE_SIZE / 2
         
         # 检查场景中的可行走区域
         if hasattr(self.scene, 'is_position_walkable'):
-            # 检查碰撞盒的四个角和中心点
-            points_to_check = [
-                test_hitbox.topleft,
-                test_hitbox.topright,
-                test_hitbox.bottomleft,
-                test_hitbox.bottomright,
-                test_hitbox.center,
-            ]
+            # 使用圆形碰撞检测（检测圆周上的点）
+            # 圆周上均匀分布 8 个检测点 + 圆心
+            import math
+            points_to_check = [(center_x, center_y)]  # 圆心
+            
+            for angle in range(0, 360, 45):  # 每 45 度一个点
+                rad = math.radians(angle)
+                px = center_x + self.collision_radius * math.cos(rad)
+                py = center_y + self.collision_radius * math.sin(rad)
+                points_to_check.append((px, py))
             
             for px, py in points_to_check:
                 if not self.scene.is_position_walkable(px, py):

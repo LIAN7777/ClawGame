@@ -107,7 +107,10 @@ class Player(Entity):
         # 当前场景引用（用于碰撞检测）
         self.scene: Optional['Scene'] = None
         
-        # 调整碰撞盒（比精灵稍小，更宽松的碰撞）
+        # 圆形碰撞模型（比精灵稍小，更顺滑）
+        self.collision_radius: float = (self.SPRITE_SIZE - 6) / 2  # 半径，比精灵小一点
+        
+        # 保留旧的碰撞盒参数（用于兼容）
         self.hitbox_offset_x = 4
         self.hitbox_offset_y = 6
         self.hitbox_width = self.SPRITE_SIZE - 8
@@ -279,7 +282,7 @@ class Player(Entity):
     
     def _move_with_collision(self, dx: float, dy: float) -> None:
         """
-        带碰撞检测的移动
+        带碰撞检测的移动（使用圆形碰撞）
         
         Args:
             dx: X 方向移动量
@@ -291,22 +294,16 @@ class Player(Entity):
             new_x = self.x + dx
             if self._can_move_to(new_x, self.y):
                 self.x = new_x
-            else:
-                # X 方向碰到障碍，尝试滑动（贴墙）
-                pass
         
         # 再尝试 Y 方向移动
         if dy != 0:
             new_y = self.y + dy
             if self._can_move_to(self.x, new_y):
                 self.y = new_y
-            else:
-                # Y 方向碰到障碍，尝试滑动（贴墙）
-                pass
     
     def _can_move_to(self, new_x: float, new_y: float) -> bool:
         """
-        检测是否可以移动到指定位置
+        检测是否可以移动到指定位置（圆形碰撞检测）
         
         Args:
             new_x: 新的 X 坐标
@@ -318,25 +315,21 @@ class Player(Entity):
         if self.scene is None:
             return True
         
-        # 创建新的碰撞盒
-        new_hitbox = pygame.Rect(
-            int(new_x + self.hitbox_offset_x),
-            int(new_y + self.hitbox_offset_y),
-            self.hitbox_width,
-            self.hitbox_height
-        )
+        # 计算新的圆心位置
+        center_x = new_x + self.SPRITE_SIZE / 2
+        center_y = new_y + self.SPRITE_SIZE / 2
         
         # 检查场景是否有自定义碰撞检测方法
         if hasattr(self.scene, 'is_position_walkable'):
-            # 使用场景的碰撞检测（用于CustomRoomScene）
-            # 检查碰撞盒的四个角和中心点
-            check_points = [
-                (new_hitbox.centerx, new_hitbox.centery),  # 中心
-                (new_hitbox.left, new_hitbox.top),          # 左上
-                (new_hitbox.right, new_hitbox.top),         # 右上
-                (new_hitbox.left, new_hitbox.bottom),       # 左下
-                (new_hitbox.right, new_hitbox.bottom),      # 右下
-            ]
+            # 使用圆形碰撞检测（检测圆周上的点）
+            # 圆周上均匀分布 8 个检测点 + 圆心
+            check_points = [(center_x, center_y)]  # 圆心
+            
+            for angle in range(0, 360, 45):  # 每 45 度一个点
+                rad = math.radians(angle)
+                px = center_x + self.collision_radius * math.cos(rad)
+                py = center_y + self.collision_radius * math.sin(rad)
+                check_points.append((px, py))
             
             for px, py in check_points:
                 if not self.scene.is_position_walkable(float(px), float(py)):
@@ -345,6 +338,14 @@ class Player(Entity):
             return True
         
         # 使用原来的tile-based碰撞检测（用于Scene）
+        # 创建等效的碰撞盒
+        new_hitbox = pygame.Rect(
+            int(new_x + self.hitbox_offset_x),
+            int(new_y + self.hitbox_offset_y),
+            self.hitbox_width,
+            self.hitbox_height
+        )
+        
         tile_size = getattr(self.scene, 'tile_size', 48)
         tilemap = getattr(self.scene, 'tilemap', None)
         
