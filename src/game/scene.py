@@ -147,6 +147,9 @@ class Scene:
         # NPC 列表（便于单独访问）
         self.npcs: List[NPC] = []
         
+        # NPC 暂停标志（输入模式下使用）
+        self.pause_npcs: bool = False
+        
         # 场景名称
         self.name = "木屋室内"
         

@@ -778,6 +778,21 @@ class NPC(Entity):
         if not self.active:
             return
         
+        # 检查是否暂停 NPC（输入模式）
+        if self.scene and hasattr(self.scene, 'pause_npcs') and self.scene.pause_npcs:
+            # 暂停时不更新移动，但继续动画和气泡显示
+            self.anim_time += dt
+            
+            # 更新气泡计时器
+            if self.show_bubble:
+                self.bubble_timer -= dt
+            
+            # 检查 LLM 响应（异步）
+            if self.is_thinking:
+                self.check_llm_response()
+            
+            return
+
         # 检查 LLM 响应（异步）
         if self.is_thinking:
             self.check_llm_response()

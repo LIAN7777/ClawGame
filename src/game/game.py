@@ -188,11 +188,16 @@ class Game:
         # 更新输入框（光标闪烁等）
         if self.input_mode:
             self.text_input.update(dt)
+            # 输入模式下暂停 NPC 移动
+            self.scene.pause_npcs = True
             # 输入模式下不处理玩家移动，但继续更新场景
             self.scene.update(dt)
             self.camera.follow(self.player.rect, smooth=True)
             self.camera.update()
             return
+        
+        # 恢复 NPC 移动
+        self.scene.pause_npcs = False
         
         # 处理玩家输入
         keys = pygame.key.get_pressed()
