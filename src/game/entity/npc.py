@@ -619,8 +619,9 @@ class NPC(Entity):
         """
         import random
 
-        # 如果已经在对话中，不重复触发
-        if self.show_bubble:
+        # 如果正在自言自语，立即切换为互动对话
+        # 如果已经在互动对话中，不重复触发
+        if self.show_bubble and self.state == NPCState.TALKING:
             return self.bubble_text
 
         # 根据颜色方案选择对话内容
@@ -1005,7 +1006,14 @@ class NPC(Entity):
         
         # 文本最大宽度限制（屏幕宽度的 60%）
         screen_width = surface.get_width()
+        screen_height = surface.get_height()
         max_text_width = int(screen_width * 0.6)
+        
+        # 检查 NPC 是否在屏幕范围内（留出一定边距）
+        margin = 100  # 边距
+        if x < -margin or x > screen_width + margin or y < -margin or y > screen_height + margin:
+            # NPC 在屏幕外，不显示气泡
+            return
         
         # 计算文本换行
         text_width, text_height, lines = self._calculate_text_lines(
@@ -1051,11 +1059,7 @@ class NPC(Entity):
         bubble_x = x + self.SPRITE_SIZE // 2 - bubble_width // 2
         bubble_y = y - bubble_height - triangle_height - triangle_offset - 8
         
-        # 确保气泡在屏幕内
-        if bubble_x < style.border_width:
-            bubble_x = style.border_width
-        elif bubble_x + bubble_width > screen_width - style.border_width:
-            bubble_x = screen_width - bubble_width - style.border_width
+        # 不再强制将气泡限制在屏幕内，让气泡自然跟随NPC位置
         
         # 创建气泡矩形
         bubble_rect = pygame.Rect(bubble_x, bubble_y, bubble_width, bubble_height)
